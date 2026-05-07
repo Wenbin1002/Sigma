@@ -65,7 +65,7 @@ description: |
 - `type` 和 `scope` 必填
 - subject：祈使句、小写开头、无句号、50 字符内（硬限 72）
 - body（可选）：解释 why，72 字符换行
-- footer（可选）：`Closes #123`、`BREAKING CHANGE:`、`Co-Authored-By:`
+- footer（可选）：`Closes #123`、`BREAKING CHANGE:`
 
 ### 架构约束检查
 
@@ -161,33 +161,21 @@ git fetch origin
 git log origin/main..HEAD --oneline
 ```
 
+确认当前分支有 commits 待提交。
+
 #### 2. 一致性审查
 
 审查所有 commits，判断是否满足 **一个分支一个目的**：
 
-- **满足**：所有 commits 围绕同一个目的 → 步骤 3（Squash）
-- **不满足**：commits 包含多个不相关变更 → 步骤 4（拆分）
+- **满足**：所有 commits 围绕同一个目的 → 步骤 3
+- **不满足**：commits 包含多个不相关变更 → 建议拆分
 
 判断标准：
 - scope 相同或强相关（如 `ports` + `runtime` 为同一功能联动）
 - type 不同但服务同一目标（如 `feat` + `test` + `docs` 为同一功能）
 - 不相关的 scope/目的组合 → 不一致
 
-#### 3. Squash & 生成 commit message
-
-一致性通过时：
-
-```bash
-git rebase -r origin/main
-git reset --soft origin/main
-git commit
-```
-
-- 分析 squash 后的完整 diff
-- 按共享格式生成 commit message
-- **必须让用户确认 message 后再 commit**
-
-#### 4. 拆分建议（不一致时）
+**拆分建议（不一致时）**：
 
 ```
 当前分支包含多个不相关变更：
@@ -202,29 +190,37 @@ git commit
 需要我帮你拆分吗？
 ```
 
-拆分方式：cherry-pick 到各自新分支，每个独立走 squash + PR。
+拆分方式：cherry-pick 到各自新分支，每个独立提 PR。
 
-#### 5. Push & 创建 PR
+#### 3. Rebase on latest main
+
+```bash
+git rebase origin/main
+```
+
+保持与 main 最新同步。不做 squash——合并时由 GitHub 的 Squash Merge 完成。
+
+如果 rebase 有冲突，协助用户解决后继续。
+
+#### 4. Push
 
 ```bash
 git push -u origin <branch-name>
 ```
 
-如果是 squash 后的 force push：
-- **必须警告用户** 将使用 `--force-with-lease`
-- 用户确认后再执行
+普通 push。如果之前 rebase 导致需要 force push，警告用户后使用 `--force-with-lease`。
 
-PR 创建：
+#### 5. 生成 PR title + body
 
-```bash
-gh pr create --title "<commit subject>" --body "<body>"
-```
+- **PR title** = 最终 squash merge 后的 commit message（符合共享格式：`<type>(<scope>): <subject>`）
+- 分析分支所有 commits 的完整 diff，生成准确的 title
+- **让用户确认 PR title**
 
 PR body 格式：
 
 ```markdown
 ## Summary
-<从 commit message 提炼，3 bullet points 以内>
+<从所有 commits 提炼，3 bullet points 以内>
 
 ## Test plan
 - [ ] <验证清单>
@@ -232,14 +228,20 @@ PR body 格式：
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-#### 6. 完成
+#### 6. 创建 PR
+
+```bash
+gh pr create --title "<PR title>" --body "<body>"
+```
+
+#### 7. 完成
 
 输出 PR URL，流程结束。
 
 ### PR 规则
 
 1. **绝不跳过一致性审查** — 即使只有一个 commit
-2. **Squash 前必须让用户确认 message**
-3. **拆分是建议不是强制** — 用户可选择不拆，但明确告知风险
-4. **Force push 前警告**
+2. **PR title 即最终 commit message** — 合并时由 GitHub squash merge 使用
+3. **PR title 必须让用户确认**
+4. **拆分是建议不是强制** — 用户可选择不拆，但明确告知风险
 5. **不自动 merge** — PR 创建后由用户决定
