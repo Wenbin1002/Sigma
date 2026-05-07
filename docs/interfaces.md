@@ -6,8 +6,22 @@
 
 ```python
 class AgentRuntimePort(Protocol):
-    def stream(self, input: str, state: ConversationState) -> AsyncIterator[AgentChunk]: ...
+    def stream(self, context: Context, input: str) -> AsyncIterator[AgentChunk]: ...
     def resume(self, state: ConversationState, decision: UserDecision) -> AsyncIterator[AgentChunk]: ...
+```
+
+## ContextBuilderPort
+
+```python
+class ContextBuilderPort(Protocol):
+    async def build(self, input: str, state: ConversationState) -> Context: ...
+
+@dataclass
+class Context:
+    system_prompt: str
+    messages: list[dict]
+    memories: list[MemoryItem]
+    references: list[Chunk]
 ```
 
 ## AgentChunk（输出流协议）
@@ -123,3 +137,14 @@ task:
   max_steps: 100
   timeout_minutes: 60
 ```
+
+## Port 接口设计约束
+
+所有 Port 接口遵守以下约束，保证未来可拆为跨进程服务：
+
+1. **入参出参可序列化** — 只用 `str / bytes / int / float / bool / list / dict / dataclass`
+2. **流式用 AsyncIterator** — 不用 callback，可直接映射 gRPC stream
+3. **依赖注入，不持有具体引用** — 只 import `ports/`
+4. **不暴露批处理优化** — Port 保持单次调用语义，批处理在 adapter 内部
+
+详见 [architecture.md → 模块通信策略](architecture.md#模块通信策略)

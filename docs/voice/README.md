@@ -27,6 +27,22 @@ Mic → VAD → STT → Agent Runtime → TTS → Speaker
 | TTS | CosyVoice | `cosyvoice` |
 | VAD | Silero VAD | `silero` |
 
-## 扩展
+## 演进路径
+
+| 阶段 | 能力 | 候选方案 |
+|------|------|---------|
+| V0 | 基础 STT + TTS，API 调用 | Whisper API, Edge TTS |
+| V1 | 流式 STT（实时出字）、打断、VAD 优化 | FunASR, Deepgram, Silero |
+| V2 | 低延迟本地推理、语音克隆、情感语音 | Whisper.cpp, CosyVoice, Fish Speech |
+| V3 | 多语言实时切换、说话人识别、端到端语音 LLM | Qwen2-Audio, 实时双工 |
+
+## 可扩展能力
+
+- STT/TTS 可独立为 gRPC streaming 服务（GPU 机器单独部署）
+- VAD 策略可插拔（能量检测 / 模型检测 / 混合）
+- 音频预处理 pipeline（降噪、回声消除）作为 middleware 插入
+- 多语言并行识别
+
+## 扩展方式
 
 实现对应 Port 接口（`STTPort` / `TTSPort`）+ 注册即可。

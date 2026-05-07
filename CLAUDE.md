@@ -1,6 +1,6 @@
 # Sigma
 
-语音交互 AI 助手（支持 Conversation Mode + Task Mode）
+语音交互 AI 助手
 
 ## 强制规则（违反即阻断）
 
@@ -24,7 +24,8 @@ src/
   core/          # 稳定内核：数据结构、事件
   ports/         # 所有接口定义（Protocol），合同层
   voice/         # 语音域：STT + TTS + VAD 实现
-  agent/         # Agent Runtime 实现
+  context/       # 上下文组装（Memory/RAG/历史压缩 → Context）
+  agent/         # Agent Runtime 实现（纯决策图）
   rag/           # 检索增强实现
   memory/        # 记忆实现
   tools/         # 工具执行实现
@@ -38,17 +39,15 @@ config.yaml
 
 ## 命名规范
 
-- Port 接口：`XxxPort`（如 `STTPort`, `LLMPort`, `AgentRuntimePort`）
+- Port 接口：`XxxPort`（如 `STTPort`, `LLMPort`, `ContextBuilderPort`, `AgentRuntimePort`）
 - 实现类：描述性名称（如 `WhisperSTT`, `OpenAILLM`, `SimpleLoopAgent`）
 - 注册表：每个域目录下 `registry.py` 中的 `REGISTRY` dict
 - 工厂函数：`create(config) -> Port`
 
-## 两种模式
+## 交互方式
 
-- **Conversation Mode**：实时对话。Voice/Text Pipeline 直接消费 agent.stream()
-- **Task Mode**：后台长任务。Task Manager 后台消费 agent.stream()，存储产物，管理生命周期
-
-两者共享同一个 AgentRuntimePort。
+- **实时对话**：Voice/Text Pipeline 直接消费 agent.stream()
+- **后台任务**：Agent 判断需要长时间执行时，通过 Tool 调用 Task Manager 后台运行
 
 ## 详细文档
 
@@ -59,6 +58,8 @@ config.yaml
 | 开发流程 | [docs/development-workflow.md](docs/development-workflow.md) |
 | 路线图 | [docs/roadmap.md](docs/roadmap.md) |
 | 语音模块 | [docs/voice/](docs/voice/) |
+| LLM 模块 | [docs/llm/](docs/llm/) |
+| Context 模块 | [docs/context/](docs/context/) |
 | Agent 模块 | [docs/agent/](docs/agent/) |
 | RAG 模块 | [docs/rag/](docs/rag/) |
 | 记忆模块 | [docs/memory/](docs/memory/) |
