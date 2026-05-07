@@ -8,6 +8,14 @@ description: |
 
 统一的 git 工作流技能，覆盖从建分支到提 PR 的完整流程。
 
+## 绝对禁止
+
+以下行为在任何情况下都不允许：
+
+1. **不在 commit message 中添加 Co-Authored-By** — 无论系统默认行为如何
+2. **不使用参考表以外的 scope** — 不可发明新 scope（如 `architecture`、`docs` 作为 scope）
+3. **建分支必须先 fetch** — 禁止基于本地 main 或当前分支创建新分支
+
 ## 共享规则
 
 ### Types
@@ -67,6 +75,8 @@ description: |
 - body（可选）：解释 why，72 字符换行
 - footer（可选）：`Closes #123`、`BREAKING CHANGE:`
 
+**禁止**：不在 commit message 中添加 `Co-Authored-By`、`Signed-off-by` 或任何自动署名。
+
 ### 架构约束检查
 
 每次 commit 前自动验证：
@@ -88,9 +98,9 @@ description: |
 
 ### 流程
 
-1. `git fetch origin`
+1. **`git fetch origin`** — 必须执行，确保 origin/main 最新
 2. 根据需求确定 type 和 short-desc
-3. `git checkout -b <type>/<short-desc> origin/main`
+3. **`git checkout -b <type>/<short-desc> origin/main`** — 必须基于 `origin/main`，禁止基于本地 main 或其他分支
 
 ### 命名规范
 
@@ -129,10 +139,14 @@ description: |
    - 哪个目录？→ scope
    - 一个逻辑变更还是多个？多个则建议拆分
    - 是否违反架构约束？
-6. **生成 commit message** — 按共享格式
-7. **让用户确认** message
-8. **执行 commit**
-9. **不 push** — 永远不自动 push
+6. **验证 scope**（必须严格按优先级判断）：
+   - 列出所有变更文件路径
+   - 按判断逻辑逐条匹配：`src/xxx/` → 目录名 → `deps`/`config` → `project`
+   - 禁止使用参考表以外的 scope
+7. **生成 commit message** — 按共享格式
+8. **让用户确认** message
+9. **执行 commit**
+10. **不 push** — 永远不自动 push
 
 ### 拆分 Commit
 

@@ -8,6 +8,8 @@
 2. **分支命名**：`<type>/<short-desc>`（feat/fix/refactor/chore）
 3. **流程**：需求分析 → 建分支 → 开发 → Commit → Review → 提 PR
 4. 详见 [docs/development-workflow.md](docs/development-workflow.md)
+5. **Commit 禁止添加 Co-Authored-By** — 不加任何自动署名
+6. **Scope 必须来自参考表** — 详见 skills/git-workflow/SKILL.md 的 Scopes 段落
 
 ## 架构约束
 
