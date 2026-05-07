@@ -224,8 +224,6 @@ PR body 格式：
 
 ## Test plan
 - [ ] <验证清单>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
 #### 6. 创建 PR
