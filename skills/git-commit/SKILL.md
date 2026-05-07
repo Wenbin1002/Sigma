@@ -97,17 +97,20 @@ Wrap at 72 characters per line.
 
 When the user wants to commit:
 
-1. **Run `git status`** to see what's changed (staged and unstaged)
-2. **Run `git diff --staged`** (and `git diff` if relevant) to understand the actual changes
-3. **Run `git log --oneline -5`** to see recent commit style for consistency
-4. **Analyze the changes** against these questions:
+1. **Check current branch** — run `git branch --show-current`
+   - If on `main` (or `master`): **STOP**.不允许直接在主分支上 commit。提示用户需要先创建新分支，询问分支名称，然后 `git checkout -b <branch>` 后再继续
+   - If already on feature branch: continue
+2. **Run `git status`** to see what's changed (staged and unstaged)
+3. **Run `git diff --staged`** (and `git diff` if relevant) to understand the actual changes
+4. **Run `git log --oneline -5`** to see recent commit style for consistency
+5. **Analyze the changes** against these questions:
    - Which directory is affected? → that's your scope
    - Is this one logical change or multiple? (If multiple, suggest splitting)
    - Does this change respect architectural constraints? (see below)
-5. **Draft the commit message** following the format above
-6. **Present to the user** for confirmation or tweaks
-7. **Execute the commit**
-8. **Do NOT push** — never run `git push` automatically; let the user push manually when ready
+6. **Draft the commit message** following the format above
+7. **Present to the user** for confirmation or tweaks
+8. **Execute the commit**
+9. **Do NOT push** — never run `git push` automatically; let the user push manually when ready
 
 ## Architectural Constraint Checks
 
