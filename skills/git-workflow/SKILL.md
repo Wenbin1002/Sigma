@@ -247,7 +247,7 @@ PR body format (this becomes the squash merge commit body, so keep it concise an
 
 ```markdown
 ## Summary
-<Distilled from all commits, 3 bullet points max>
+<Distilled from all commits, keep it concise>
 ```
 
 #### 6. Create the PR
