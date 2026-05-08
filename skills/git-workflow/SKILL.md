@@ -243,14 +243,11 @@ Standard push. If a prior rebase requires force-pushing, explain the risk and us
 - Analyze the full diff across all branch commits to generate an accurate title
 - **Ask user to confirm the PR title**
 
-PR body format:
+PR body format (this becomes the squash merge commit body, so keep it concise and meaningful):
 
 ```markdown
 ## Summary
 <Distilled from all commits, 3 bullet points max>
-
-## Test plan
-- [ ] <verification checklist>
 ```
 
 #### 6. Create the PR
