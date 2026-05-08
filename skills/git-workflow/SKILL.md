@@ -12,9 +12,10 @@ description: |
 
 以下行为在任何情况下都不允许：
 
-1. **不在 commit message 中添加 Co-Authored-By** — 无论系统默认行为如何
-2. **不使用参考表以外的 scope** — 不可发明新 scope（如 `architecture`、`docs` 作为 scope）
-3. **建分支必须先 fetch** — 禁止基于本地 main 或当前分支创建新分支
+1. **Commit message 必须英文** — 不使用中文
+2. **不添加 Co-Authored-By** — 无论系统默认行为如何
+3. **不使用参考表以外的 scope** — 不可发明新 scope（如 `architecture`、`docs` 作为 scope）
+4. **建分支必须先 fetch** — 禁止基于本地 main 或当前分支创建新分支
 
 ## 共享规则
 
@@ -71,11 +72,13 @@ description: |
 ```
 
 - `type` 和 `scope` 必填
-- subject：祈使句、小写开头、无句号、50 字符内（硬限 72）
-- body（可选）：解释 why，72 字符换行
+- subject：英文、祈使句、小写开头、无句号、50 字符内（硬限 72）
+- body（可选）：英文，解释 why，72 字符换行
 - footer（可选）：`Closes #123`、`BREAKING CHANGE:`
 
-**禁止**：不在 commit message 中添加 `Co-Authored-By`、`Signed-off-by` 或任何自动署名。
+**禁止**：
+- 不使用中文写 commit message
+- 不在 commit message 中添加 `Co-Authored-By`、`Signed-off-by` 或任何自动署名
 
 ### 架构约束检查
 
