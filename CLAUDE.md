@@ -7,7 +7,7 @@
 1. **禁止在 main 上直接 commit**——任何变更必须先建分支，走 PR 合入
 2. **分支命名**：`<type>/<short-desc>`（feat/fix/refactor/chore）
 3. **流程**：需求分析 → 建分支 → 开发 → Commit → Review → 提 PR
-4. 详见 [docs/development-workflow.md](docs/development-workflow.md)
+4. **严格遵守 git-workflow skill** — 详见 [skills/git-workflow/SKILL.md](skills/git-workflow/SKILL.md)
 
 ## 架构约束
 

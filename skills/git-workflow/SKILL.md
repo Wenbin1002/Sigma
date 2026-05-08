@@ -8,7 +8,18 @@ description: |
 
 统一的 git 工作流技能，覆盖从建分支到提 PR 的完整流程。
 
-## 共享规则
+## Design Principles
+
+This skill exists to keep the git history clean, reviewable, and easy to navigate months later. A few ground rules flow from that goal:
+
+- **Commit messages in English** — the git log is a shared artifact; English keeps it consistent and plays well with CLI tools, GitHub search, and automation that parses conventional commits.
+- **No Co-Authored-By or Signed-off-by** — this project doesn't use DCO or co-author tracking; adding them creates noise in the log.
+- **Scopes come from the reference table only** — inventing ad-hoc scopes (like `architecture` or `docs` as a scope) fragments the log and makes filtering unreliable.
+- **Always fetch before branching** — the local `main` can be days behind `origin/main`; branching from a stale base guarantees merge conflicts later.
+
+---
+
+## Shared Conventions
 
 ### Types
 
@@ -25,17 +36,17 @@ description: |
 
 ### Scopes
 
-#### 判断逻辑（按优先级）
+Scope tells you *where* the change lives. Determine it by priority:
 
-1. **改了 `src/xxx/` 下的文件** → scope 就是那个目录名（`voice`, `agent`, `core`, `runtime` 等）
-2. **改的不在 `src/` 里，但属于特定类别** → 按性质选：`deps`（依赖文件）、`config`（运行时配置文件 config.yaml）
-3. **以上都不匹配** → `project`（兜底，覆盖所有项目级基础设施：文档、skills、CI、脚手架等）
-4. **跨多个目录** → 逗号连接主要 scope，或选影响最大的那个
+1. **Changed files under `src/xxx/`** → scope is that directory name (`voice`, `agent`, `core`, `runtime`, etc.)
+2. **Not in `src/` but has a clear category** → `deps` (dependency files) or `config` (runtime config like config.yaml)
+3. **Nothing above matches** → `project` (catch-all for project infrastructure: docs, skills, CI, scripts, etc.)
+4. **Multiple directories** → comma-join the main scopes, or pick the one with the biggest impact
 
-#### 参考表
+#### Reference Table
 
-| Scope | 典型路径 |
-|-------|---------|
+| Scope | Typical paths |
+|-------|--------------|
 | `voice` | `src/voice/` |
 | `agent` | `src/agent/` |
 | `rag` | `src/rag/` |
@@ -45,14 +56,15 @@ description: |
 | `core` | `src/core/` |
 | `ports` | `src/ports/` |
 | `runtime` | `src/runtime/` |
+| `context` | `src/context/` |
 | `app` | `src/app/` |
 | `deps` | `pyproject.toml`, `requirements.txt` |
 | `config` | `config.yaml` |
-| `project` | 其他一切（README, CLAUDE.md, skills/, CI, scripts 等） |
+| `project` | Everything else (README, CLAUDE.md, skills/, CI, scripts, etc.) |
 
-**Note**: `docs` 是 type 不是 scope。写文档时 scope 指向它描述的模块（如 `docs(voice)`），全局文档用 `docs(project)`。
+**Note**: `docs` is a type, not a scope. When writing documentation, the scope points to the module it describes (e.g., `docs(voice)`). For global docs, use `docs(project)`.
 
-### Commit Message 格式
+### Commit Message Format
 
 ```
 <type>(<scope>): <subject>
@@ -62,135 +74,150 @@ description: |
 [footer]
 ```
 
-- `type` 和 `scope` 必填
-- subject：祈使句、小写开头、无句号、50 字符内（硬限 72）
-- body（可选）：解释 why，72 字符换行
-- footer（可选）：`Closes #123`、`BREAKING CHANGE:`
+- `type` and `scope` are required
+- subject: imperative mood, lowercase start, no period, under 50 chars (hard limit 72)
+- body (optional): explain *why*, wrap at 72 chars
+- footer (optional): `Closes #123`, `BREAKING CHANGE:`
 
-### 架构约束检查
+**Example 1:**
+Input: Added a new Whisper-based STT implementation under src/voice/
+Output: `feat(voice): add whisper STT implementation`
 
-每次 commit 前自动验证：
+**Example 2:**
+Input: Fixed a bug where the runtime dispatched duplicate events
+Output: `fix(runtime): prevent duplicate event dispatch in pipeline`
 
-| 约束 | 检查内容 | 违规提示 |
-|------|---------|---------|
-| core 独立 | `core/` 无外部 AI 框架 import | "core/ 引入了外部依赖，应移到域目录" |
-| 无反向依赖 | `runtime/` 不 import 域目录 | "runtime/ 应只 import ports/" |
-| 域隔离 | 域目录不互相引用 | "域之间不应互相引用，通过 ports/ 通信" |
-| Registry 注册 | 新实现需注册到 registry.py | "新实现未注册到 registry.py" |
+**Example 3:**
+Input: Updated pyproject.toml to bump openai SDK version
+Output: `chore(deps): upgrade openai sdk to 1.12.0`
 
-违规时警告但不阻塞，由用户决定是否继续。
+### Architecture Checks
+
+Before each commit, verify the change respects the project's layered architecture. This catches coupling issues early — see `references/architecture-checks.md` for the full checklist and grep commands.
+
+If a violation is found, warn the user and explain the concern, but don't block the commit — let them decide.
 
 ---
 
-## Branch — 创建分支
+## Branch — Creating a Branch
 
-触发词："建分支"、"new branch"、"checkout -b"、开始新需求时
+Triggers: "建分支", "new branch", "checkout -b", or when starting a new task
 
-### 流程
+### Why fetch first?
 
-1. `git fetch origin`
-2. 根据需求确定 type 和 short-desc
-3. `git checkout -b <type>/<short-desc> origin/main`
+Your local `main` might be commits behind `origin/main`. Branching from a stale base means you'll inherit outdated code and face unnecessary conflicts at PR time. Always start from the freshest `origin/main`.
 
-### 命名规范
+### Flow
 
-格式：`<type>/<short-desc>`
+1. **`git fetch origin`** — sync remote state
+2. Determine `type` and `short-desc` from the task at hand
+3. **`git checkout -b <type>/<short-desc> origin/main`** — branch from remote main
 
-- type 与 commit type 一致
-- short-desc 用英文短横线连接，简明描述意图
+### Naming
 
-示例：
+Format: `<type>/<short-desc>`
+
+- type matches commit types above
+- short-desc uses English, kebab-case, concisely describes the intent
+
+Examples:
 - `feat/voice-streaming`
 - `fix/pipeline-duplicate-events`
 - `refactor/extract-port-base`
 - `chore/upgrade-openai-sdk`
 
-### 规则
+### Guidelines
 
-- 必须基于 `origin/main`（先 fetch）
-- 一个分支一个目的
-- 分支名需跟用户确认后再创建
-
----
-
-## Commit — 提交代码
-
-触发词："commit"、"提交"、"save"、"done"、"finished"
-
-### 流程
-
-1. **检查当前分支** — `git branch --show-current`
-   - 在 `main`/`master` 上：**STOP**，提示建分支，不继续
-   - 在 feature branch 上：继续
-2. **`git status`** — 查看变更
-3. **`git diff --staged`**（+ `git diff`）— 理解变更内容
-4. **`git log --oneline -5`** — 确认风格一致
-5. **分析变更**：
-   - 哪个目录？→ scope
-   - 一个逻辑变更还是多个？多个则建议拆分
-   - 是否违反架构约束？
-6. **生成 commit message** — 按共享格式
-7. **让用户确认** message
-8. **执行 commit**
-9. **不 push** — 永远不自动 push
-
-### 拆分 Commit
-
-如果 diff 包含不相关变更：
-
-```
-当前 diff 包含多个不相关变更：
-1. 新的 voice 实现 (feat)
-2. pipeline bug 修复 (fix)
-
-建议拆分为独立 commit，保持历史清晰。需要我帮拆分吗？
-```
+- One branch, one purpose — keeps PRs focused and reviewable
+- Confirm the branch name with the user before creating it
 
 ---
 
-## PR — 提交 Pull Request
+## Commit — Committing Code
 
-触发词："提 PR"、"submit PR"、"create PR"、"push and PR"
+Triggers: "commit", "提交", "save", "done", "finished"
 
-### 流程
+### Why check the branch first?
 
-#### 1. 预检
+Committing directly to `main` bypasses the PR review process and can't be easily undone once pushed. Catching this early saves headaches.
+
+### Flow
+
+1. **Check current branch** — `git branch --show-current`
+   - On `main`/`master`: stop and suggest creating a feature branch first (explain why: direct commits to main bypass review)
+   - On a feature branch: proceed
+2. **`git status`** — see what changed
+3. **`git diff --staged`** (+ `git diff`) — understand the changes
+4. **`git log --oneline -5`** — confirm style consistency
+5. **Analyze the changes**:
+   - Which directory? → determines scope
+   - One logical change or several? If multiple unrelated changes, suggest splitting (a commit should tell one story)
+   - Check architecture constraints (see `references/architecture-checks.md`)
+6. **Determine scope** — walk through the priority rules:
+   - List all changed file paths
+   - Match against: `src/xxx/` → directory name → `deps`/`config` → `project`
+   - Only use scopes from the reference table
+7. **Generate commit message** — follow the shared format
+8. **Ask user to confirm** the message
+9. **Execute the commit**
+10. **Don't push** — pushing is a separate, conscious decision (happens at PR time)
+
+### Splitting Commits
+
+If the diff contains unrelated changes, suggest splitting — a clean history makes `git bisect`, `git log`, and code review dramatically easier:
+
+```
+The current diff contains multiple unrelated changes:
+1. New voice implementation (feat)
+2. Pipeline bug fix (fix)
+
+Splitting these into separate commits keeps the history navigable.
+Want me to help stage them separately?
+```
+
+---
+
+## PR — Creating a Pull Request
+
+Triggers: "提 PR", "submit PR", "create PR", "push and PR"
+
+### Flow
+
+#### 1. Pre-check
 
 ```bash
 git fetch origin
 git log origin/main..HEAD --oneline
 ```
 
-确认当前分支有 commits 待提交。
+Confirm the branch has commits ready to submit.
 
-#### 2. 一致性审查
+#### 2. Coherence Review
 
-审查所有 commits，判断是否满足 **一个分支一个目的**：
+Review all commits to check whether the branch serves **one purpose**:
 
-- **满足**：所有 commits 围绕同一个目的 → 步骤 3
-- **不满足**：commits 包含多个不相关变更 → 建议拆分
+- **Coherent**: all commits orbit the same goal → proceed to step 3
+- **Incoherent**: commits address unrelated concerns → suggest splitting
 
-判断标准：
-- scope 相同或强相关（如 `ports` + `runtime` 为同一功能联动）
-- type 不同但服务同一目标（如 `feat` + `test` + `docs` 为同一功能）
-- 不相关的 scope/目的组合 → 不一致
+How to judge:
+- Same or strongly related scopes (e.g., `ports` + `runtime` for one feature) → coherent
+- Different types serving one goal (e.g., `feat` + `test` + `docs` for one feature) → coherent
+- Unrelated scope/purpose combos → incoherent
 
-**拆分建议（不一致时）**：
+**When incoherent, suggest splitting** (but it's a suggestion, not a mandate — the user decides):
 
 ```
-当前分支包含多个不相关变更：
+This branch contains multiple unrelated changes:
 
 1. feat(voice): add streaming support — commits: a1b2c3, d4e5f6
 2. fix(runtime): fix duplicate events — commits: g7h8i9
 
-建议拆分为两个分支分别提 PR：
+Splitting into separate PRs makes each one easier to review and revert if needed:
 - feat/voice-streaming
 - fix/pipeline-duplicate-events
 
-需要我帮你拆分吗？
+Want me to help split them via cherry-pick?
 ```
-
-拆分方式：cherry-pick 到各自新分支，每个独立提 PR。
 
 #### 3. Rebase on latest main
 
@@ -198,9 +225,9 @@ git log origin/main..HEAD --oneline
 git rebase origin/main
 ```
 
-保持与 main 最新同步。不做 squash——合并时由 GitHub 的 Squash Merge 完成。
+Keep the branch up-to-date with main. Don't squash here — GitHub's Squash Merge handles that at merge time.
 
-如果 rebase 有冲突，协助用户解决后继续。
+If rebase produces conflicts, help the user resolve them.
 
 #### 4. Push
 
@@ -208,38 +235,33 @@ git rebase origin/main
 git push -u origin <branch-name>
 ```
 
-普通 push。如果之前 rebase 导致需要 force push，警告用户后使用 `--force-with-lease`。
+Standard push. If a prior rebase requires force-pushing, explain the risk and use `--force-with-lease` (safer than `--force` because it won't overwrite someone else's push).
 
-#### 5. 生成 PR title + body
+#### 5. Generate PR title + body
 
-- **PR title** = 最终 squash merge 后的 commit message（符合共享格式：`<type>(<scope>): <subject>`）
-- 分析分支所有 commits 的完整 diff，生成准确的 title
-- **让用户确认 PR title**
+- **PR title** = the commit message that will survive after squash merge (follows the shared `<type>(<scope>): <subject>` format)
+- Analyze the full diff across all branch commits to generate an accurate title
+- **Ask user to confirm the PR title**
 
-PR body 格式：
+PR body format (this becomes the squash merge commit body, so keep it concise and meaningful):
 
 ```markdown
 ## Summary
-<从所有 commits 提炼，3 bullet points 以内>
-
-## Test plan
-- [ ] <验证清单>
+<Distilled from all commits, keep it concise>
 ```
 
-#### 6. 创建 PR
+#### 6. Create the PR
 
 ```bash
 gh pr create --title "<PR title>" --body "<body>"
 ```
 
-#### 7. 完成
+#### 7. Done
 
-输出 PR URL，流程结束。
+Output the PR URL. Don't auto-merge — that's the user's call.
 
-### PR 规则
+### PR Guidelines
 
-1. **绝不跳过一致性审查** — 即使只有一个 commit
-2. **PR title 即最终 commit message** — 合并时由 GitHub squash merge 使用
-3. **PR title 必须让用户确认**
-4. **拆分是建议不是强制** — 用户可选择不拆，但明确告知风险
-5. **不自动 merge** — PR 创建后由用户决定
+- Always run the coherence review, even for single-commit branches — it's a quick sanity check
+- The PR title becomes the final commit message after squash merge, so it matters
+- Splitting is a recommendation, not a command — if the user wants to proceed as-is, respect that but note the trade-off (harder to review, harder to revert partially)
