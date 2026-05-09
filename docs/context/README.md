@@ -1,6 +1,6 @@
 # Context Builder
 
-每轮 Agent 调用前，组装 LLM 应该看到的完整上下文。独立于 Agent，策略可插拔。
+每轮 Agent 调用前，组装 LLM 应该看到的完整上下文。在 Runtime Graph 中作为一个 Node 存在（位于 Agent Node 前面），内部可展开为子图（Memory / RAG / History 并行执行后汇总）。策略可插拔。
 
 ## 职责
 

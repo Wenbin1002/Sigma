@@ -87,14 +87,40 @@
 
 ## 分层说明
 
+### Graph / Node 关系
+
+整个系统的编排逻辑用 Graph（图）和 Node（节点）的关系来理解：
+
+```
+Runtime = Graph（定义 node 之间怎么连，数据怎么流）
+Port    = Node 的 interface（输入输出契约）
+域目录   = Node 的实现（内部黑盒，可以是子图）
+```
+
+LangGraph 天然支持图嵌套 — 一个 node 内部本身可以是一张子图，对外等价于一次函数调用。
+
+| 概念 | 对应 | 特征 |
+|------|------|------|
+| Runtime | Graph | 拓扑固定，开发者定义，决定数据怎么流 |
+| Port | Node interface | 输入输出契约，调用方不关心内部实现 |
+| Agent / Context Builder / ... | Node 实现 | 路径可动态（LLM 运行时决定），内部可嵌套子图 |
+
+```
+Runtime Graph (系统编排)
+  ├── Context Builder Node  (子图：Memory / RAG / History 并行 → 汇总)
+  ├── Agent Node            (子图：Think → Act → Observe 循环)
+  └── Post-process Node     (创建后台任务 / 直接回复)
+```
+
+### 分层表
+
 | 层 | 职责 | 详见 |
 |---|---|---|
 | App | 用户界面入口（CLI/Web/API） | — |
-| Runtime | Voice/Text Pipeline，流式交互 | — |
-| Context Builder | 每轮调用前组装上下文（Memory/RAG/历史压缩） | [context/](context/) |
-| Agent Runtime | 纯决策图，流式输入输出，内部完全自治 | [agent/](agent/) |
-| Ports | 模块接口定义，不含任何实现 | 各模块文档 |
-| Adapters | 具体实现，挂在 Port 下面，可随时替换 | 各模块文档 |
+| Runtime | 系统级编排 — 定义 node 之间的连接拓扑和数据流向 | [runtime-design.md](runtime-design.md) |
+| Nodes | 各能力单元：Context Builder、Agent 等，通过 Port 接口暴露给 Runtime | 各模块文档 |
+| Ports | Node 接口定义（Protocol），不含任何实现 | [interfaces.md](interfaces.md) |
+| Adapters | Node 的具体实现，挂在 Port 下面，可随时替换 | 各模块文档 |
 | Infrastructure | 存储、队列等基础设施 | — |
 | Trace/Config | 横切关注点，贯穿所有层 | [observability/](observability/) |
 
@@ -119,9 +145,17 @@ Task Manager 职责：
 
 ## 核心设计决策
 
-### 1. Ports & Adapters
+### 1. Graph / Node 分离
 
-模块之间通过 Port（接口）通信，实现挂在 Adapter 里，随时可换。
+Runtime（Graph）负责系统编排：node 之间怎么连、数据怎么流、走哪条边。这是开发者定义的固定拓扑。
+
+Agent（Node）负责认知决策：拿到上下文后怎么做、调什么工具、要不要重试。这是 LLM 运行时动态决定的路径。
+
+两者都可以用 LangGraph 实现，但层级不同——Graph 是确定性的 DAG，Node 内部是 LLM 驱动的动态图。
+
+### 2. Port = Node Interface
+
+Port 是 node 的接口契约。Runtime Graph 通过 Port 调用 node，不关心内部实现。Agent 实现可以是 while loop、LangGraph 子图、远程 gRPC 调用——对 Runtime 来说都只是 `stream(context, input) → AsyncIterator[AgentChunk]`。
 
 ```
 runtime 只 import ports，永远不 import adapters
@@ -129,22 +163,18 @@ adapters 只 import ports + 外部 SDK
 core 不依赖任何东西
 ```
 
-### 2. Agent Runtime 是黑盒
-
-对外只有 `stream()` 和 `resume()`。内部是 while loop、LangGraph、还是别的什么，调用方不关心。
-
 ### 3. Context Builder 独立于 Agent
 
-上下文组装和决策执行是两件独立的事，拆开。Context Builder 决定"LLM 看到什么"，Agent 专注"拿到上下文后怎么做"。
+上下文组装和决策执行是两个独立的 node。Context Builder 决定"LLM 看到什么"，Agent 专注"拿到上下文后怎么做"。两者都是 Runtime Graph 上的 node，通过 state 传递数据。
 
 ### 4. 配置驱动
 
-切换任何模块 = 改 config 里的 provider 字段。
+切换任何 node 的实现 = 改 config 里的 provider 字段。
 
 ### 5. 接入新技术的固定流程
 
 ```
-1. 写 adapter
+1. 写 adapter（node 的新实现）
 2. 注册到 REGISTRY
 3. 改配置
 4. 跑测试
