@@ -1,72 +1,48 @@
 # Sigma
 
-支持语音交互的 AI 助手。能听、能说、能用工具做事、能记住你说过的话、能基于你的资料回答问题。
+可插拔的 AI Agent 框架。Runtime 是 Graph（编排），执行单元是 Node（黑盒），Node 通过 Port 消费可替换能力（LLM/Memory/RAG/Tools）。Graph 不关心 Node 内部，Node 不关心 Port 背后是谁。
 
-## 特性
+## 核心特性
 
-- **Conversation Mode** — 实时对话，语音或文本，流式输出，支持打断
-- **Task Mode** — 后台长任务，提交后可离线，自主运行完成后通知
-- **可插拔架构** — 所有模块通过 Port 接口解耦，切换实现只需改配置
-- **配置驱动** — 一份 `config.yaml` 控制所有模块的 provider 选择
+- **Ports & Adapters 架构** — 所有能力通过 Protocol 接口定义，实现可热替换，框架无锁定
+- **Context 分层组装** — Memory 召回、RAG 检索、历史压缩独立为子图，按需组合注入 Agent
+- **配置驱动** — 切换 LLM / Memory / RAG / Tools 的实现 = 改一行 config
+- **流式 Agent Runtime** — 统一的 `AsyncIterator[AgentChunk]` 输出协议，支持中断、确认、恢复
+- **语音交互（可选）** — 级联和 Realtime 双模式，作为 adapter 接入，不影响核心架构
 
 ## 架构
 
 ```
 App (CLI / Web / API)
-        │
-   Session Layer
-   ┌────┴────┐
-   │         │
-Voice/Text  Task
-Pipeline   Manager
-   └────┬────┘
-        │
-  Agent Runtime (stream / resume)
-        │
-   ┌────┼────┐
-   │    │    │
-Memory  RAG  Tools
-        │
-   Ports Layer (接口定义)
-        │
-  Domain Implementations (voice / agent / rag / memory / tools / trace)
+      │
+ Runtime Layer（编排）
+      │
+Context Builder → Agent Runtime
+      │                 │
+Memory / RAG /       LLM + Tools
+History
+      │
+ Ports Layer（接口契约）
+      │
+Domain Adapters（Whisper / OpenAI / LlamaIndex / ...）
 ```
 
-两种模式共享同一个 `AgentRuntimePort.stream()`，区别只在上层谁来消费这个流。
+所有模块通过 Port 接口通信，`runtime/` 只依赖 `ports/`，永远不直接 import 具体实现。详见 [架构文档](docs/architecture/overview.md)。
 
-## 代码结构
+## 项目状态
 
-```
-src/
-  core/               # 稳定内核：数据结构、事件
-  ports/              # 所有接口定义（Protocol），合同层
-  voice/              # 语音域：STT + TTS + VAD 实现
-  agent/              # Agent Runtime 实现
-  rag/                # 检索增强实现
-  memory/             # 记忆实现
-  tools/              # 工具执行实现
-  trace/              # 观测实现
-  runtime/            # 跨域业务编排
-  app/                # 应用入口
+> 🚧 早期开发阶段 — 架构设计已完成，正在实现 V0
 
-experiments/          # 平行实验
-tests/
-config.yaml
-```
-
-详见 [docs/architecture.md](docs/architecture.md)
+当前进度参见 [路线图](docs/roadmap.md)。
 
 ## Quick Start
 
-> WIP — 项目处于早期开发阶段
-
 ```bash
-# 克隆
 git clone <repo-url>
-cd ChatBot
+cd Sigma
 
 # 安装依赖
-pip install -e .
+pip install -e ".[dev]"
 
 # 配置
 cp config.example.yaml config.yaml
@@ -76,7 +52,7 @@ cp config.example.yaml config.yaml
 python -m src.app.cli
 ```
 
-## 配置
+## 配置示例
 
 ```yaml
 llm:
@@ -90,13 +66,9 @@ voice:
 
 retrieval:
   provider: llamaindex
-  vector_store: qdrant
 
 memory:
   provider: local
-
-trace:
-  provider: jsonl
 
 agent_runtime:
   provider: simple_loop
@@ -108,23 +80,33 @@ agent_runtime:
 
 | 模块 | 说明 | 文档 |
 |------|------|------|
-| Voice | STT / TTS / VAD，延迟优化 | [docs/voice/](docs/voice/) |
-| Agent | Runtime Port 接口设计、状态管理 | [docs/agent/](docs/agent/) |
-| RAG | 检索增强生成 | [docs/rag/](docs/rag/) |
-| Memory | 长期记忆、上下文压缩 | [docs/memory/](docs/memory/) |
-| Tools | MCP、权限模型 | [docs/tools/](docs/tools/) |
-| Trace | 观测、Eval | [docs/trace/](docs/trace/) |
+| Agent | 认知引擎，决策循环 | [docs/modules/agent/](docs/modules/agent/) |
+| Context | 上下文分层组装 | [docs/modules/context/](docs/modules/context/) |
+| Memory | 跨会话记忆提取与召回 | [docs/modules/memory/](docs/modules/memory/) |
+| RAG | 检索增强生成 | [docs/modules/rag/](docs/modules/rag/) |
+| Tools | 工具调用，MCP 协议 | [docs/modules/tools/](docs/modules/tools/) |
+| LLM | 多 provider 模型调用 | [docs/modules/llm/](docs/modules/llm/) |
+| Voice | STT / TTS / VAD（可选） | [docs/modules/voice/](docs/modules/voice/) |
+| Trace | 追踪、评估 | [docs/modules/trace/](docs/modules/trace/) |
 
-## Roadmap
+## 文档
 
-| 版本 | 目标 | 周期 |
-|------|------|------|
-| **V0** | 能对话 — 语音/文本流式交互，延迟 < 3s | 2 周 |
-| **V1** | 能做事 — 工具调用，状态持久化 | 2-3 周 |
-| **V2** | 能记住 + 能查资料 — RAG + Memory | 3-4 周 |
-| **V3** | 更强 — GraphRAG, MCP 生态, 多模态 | 持续迭代 |
+完整文档入口：[docs/index.md](docs/index.md)
 
-详见 [docs/roadmap.md](docs/roadmap.md)
+| 主题 | 链接 |
+|------|------|
+| 架构总览 | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| 贡献指南 | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 路线图 | [docs/roadmap.md](docs/roadmap.md) |
+
+## 参与贡献
+
+欢迎参与！请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解开发流程和规范。
+
+当前最需要的贡献方向：
+- Adapter 实现（为各模块接入新的 provider）
+- 文档完善
+- 实验和评测（`experiments/` 目录）
 
 ## License
 
