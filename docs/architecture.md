@@ -266,6 +266,7 @@ config.yaml
 |------|------|------|
 | 总纲 | [本文](architecture.md) | 架构总览 |
 | 路线 | [roadmap.md](roadmap.md) | 版本规划 |
+| Runtime 编排 | [runtime-design.md](runtime-design.md) | LangGraph Pipeline + Realtime 双模式设计 |
 | 语音 | [voice/](voice/) | STT/TTS/VAD、延迟优化 |
 | LLM | [llm/](llm/) | 模型调用、路由、缓存 |
 | Context | [context/](context/) | 上下文组装、历史压缩、注入策略 |
