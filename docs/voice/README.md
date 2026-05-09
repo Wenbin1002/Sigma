@@ -34,7 +34,17 @@ Mic → VAD → STT → Agent Runtime → TTS → Speaker
 | V0 | 基础 STT + TTS，API 调用 | Whisper API, Edge TTS |
 | V1 | 流式 STT（实时出字）、打断、VAD 优化 | FunASR, Deepgram, Silero |
 | V2 | 低延迟本地推理、语音克隆、情感语音 | Whisper.cpp, CosyVoice, Fish Speech |
-| V3 | 多语言实时切换、说话人识别、端到端语音 LLM | Qwen2-Audio, 实时双工 |
+| V3 | 多语言实时切换、说话人识别 | Qwen2-Audio |
+| V4 | Realtime 模式（端到端原生音频） | OpenAI Realtime API, Gemini Live API |
+
+## 双模式
+
+语音交互支持两种模式，详见 [runtime-design.md](../runtime-design.md)：
+
+| 模式 | 路径 | 适用场景 |
+|------|------|---------|
+| 级联（Cascade） | Audio → STT → LLM → TTS → Audio | 通用交互，不需要感知语气 |
+| 端到端（Realtime） | Audio → Multimodal LLM → Audio | 语言学习、情绪陪伴等需感知语气的场景 |
 
 ## 可扩展能力
 

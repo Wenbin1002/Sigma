@@ -1,6 +1,27 @@
 # Agent Runtime
 
-核心决策引擎。接收组装好的上下文，通过 LLM + 工具调用生成回复，流式输出。上层只关注 input & output，内部实现可替换。
+核心认知引擎。在 Runtime Graph 中作为一个 Node 存在 — 接收组装好的上下文，通过 LLM + 工具调用生成回复，流式输出。
+
+## 定位：Graph 中的 Node
+
+```
+Runtime (Graph) 负责：            Agent (Node) 负责：
+  node 之间怎么连                   拿到上下文后怎么决策
+  数据怎么流                        该不该调工具？调哪个？
+  走哪条边（确定性条件）              结果不对要不要重试？
+  开发者定义                         LLM 运行时动态决定
+```
+
+AgentRuntimePort 就是这个 node 的 interface — 对 Runtime Graph 来说，Agent 等价于一次异步 API 调用：
+
+```python
+# Runtime 的视角：Agent 就是一个黑盒函数
+chunks = agent.stream(context, input)
+async for chunk in chunks:
+    yield chunk  # 透传给用户
+```
+
+内部是 while loop、LangGraph 子图、还是多 agent 协作，调用方不关心。
 
 ## 接口
 
