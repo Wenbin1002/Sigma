@@ -1,91 +1,191 @@
-# RAG — 检索增强生成
+# RAG 模块
 
-> 让 AI 基于你的文档回答问题，而不是编造答案。
+> Sigma 的检索增强系统——**多 index 分层管理**，按 task / session 配置不同的 index。
 
-## 在架构中的位置
+---
 
-- **所属层**: Adapters
-- **Port 接口**: `src/ports/retrieval.py` → `RetrievalPort`
-- **实现目录**: `src/rag/`
-- **被谁调用**: Context Builder（前置检索）、Agent（运行时 Tool 调用）
-- **依赖**: 向量数据库、Embedding 模型
+## 1. 定位
 
-## Port 接口定义
+RAG 在 Sigma 中是**核心功能之一**，不是可选的 add-on（详见 [架构总览](../../architecture/overview.md#1-sigma-是什么)）。
+
+四个核心场景对 RAG 的需求差别巨大：
+
+| 场景 | 需要的 RAG | Index 内容 |
+|---|---|---|
+| 1 社媒筛选 | 不直接需要 RAG（实时拉取） | — |
+| 2 期货分析 | 行业知识 RAG（可选） | 养殖业基础概念 / 历史报告 |
+| 3 讨论书 | 必需 | 这本书的全文 |
+| 4 Coding | 必需 | 代码库 |
+
+**结论**：RAG 不是单一全局索引，是**多 index 系统**——按 task / session 配置不同 index，agent 按需查不同的。
+
+---
+
+## 2. 多 Index 模型
+
+```
+~/.sigma/rag/
+  indices/
+    book-xxx/                    # 某本书的索引
+      vectors/                   #   向量
+      metadata.json              #   chunking 配置 / 创建时间 / source
+    code-myproject/              # 某个代码库的索引
+    industry-pig-farming/        # 行业知识
+    user-notes/                  # 用户笔记
+```
+
+每个 index 是 self-contained 的：
+- 自己的向量存储
+- 自己的 metadata（chunking 策略 / embedding model / 来源）
+- 可独立创建、删除、更新
+
+---
+
+## 3. Index 生命周期
+
+```bash
+# 创建
+sigma rag create <name> --source <path-or-url>
+sigma rag create book-pride-and-prejudice --source ./book.epub
+
+# 列出
+sigma rag list
+
+# 更新
+sigma rag update <name>          # 重建索引
+
+# 删除
+sigma rag delete <name>
+
+# 配置 task 用哪个 index
+sigma task new "..." --rag book-xxx,user-notes
+```
+
+---
+
+## 4. 检索流程
+
+### 4.1 查询
 
 ```python
-class RetrievalPort(Protocol):
-    async def search(self, query: str, top_k: int = 5) -> list[Chunk]: ...
-    async def index(self, documents: list[Document]) -> None: ...
+@sigma.tool
+def search_knowledge(query: str, indices: list[str], top_k: int = 5) -> list[Citation]:
+    """从指定 index 检索相关片段。"""
+    ...
 ```
 
-## 流程
+返回结构化 `Citation`（来源 / 片段 / score / 元数据），不是裸文本——方便 LLM 理解和引用。
+
+### 4.2 进入 Context
+
+检索结果由 [Context Engine](../context/) 决定：
+- 放多少进 LLM context（按 score 截断）
+- 怎么标注（prefix "[来源 X]"）
+- 是否要求 LLM 在回复时带引用
+
+---
+
+## 5. Indexing Pipeline
 
 ```
-文档 → 切块 → 向量化 → 存入向量库
-用户提问 → 向量化 → 检索相似块 → 注入上下文 → LLM 回答（带引用）
+源文件 (PDF / 代码 / markdown / web URL)
+    ↓
+解析（提取文本、保留结构）
+    ↓
+Chunking（按 size / 语义 / 结构）
+    ↓
+Embedding（按 index 配置选 embedding model）
+    ↓
+存入 vector store
 ```
 
-## 可用实现
+策略可配置：
+- Chunk size
+- Overlap
+- Embedding model
+- Vector store backend（V3 选定，可能 Qdrant / Chroma / LanceDB）
 
-| 实现 | 类名 | 文件 | 配置值 | 状态 |
-|------|------|------|--------|------|
-| LlamaIndex | `LlamaIndexRetrieval` | `src/rag/llamaindex.py` | `llamaindex` | V1 planned |
-| Qdrant | `QdrantRetrieval` | `src/rag/qdrant.py` | `qdrant` | V1 planned |
+---
 
-## 工作原理
+## 6. 与 Memory 的区分
 
-RAG 分两个阶段：
+容易混淆的边界。澄清：
 
-**索引阶段**：文档被切分为 chunk，每个 chunk 经过 embedding 模型转为向量，存入向量数据库。
+| | RAG | Memory |
+|---|---|---|
+| 数据来源 | 用户提供的文档 / 代码 | 系统自动从对话提取 |
+| 更新频率 | 显式（用户运行 `rag update`） | 隐式（每次对话） |
+| 内容 | "事实"（文档说什么） | "用户和对话状态"（喜好、决定、上下文） |
+| 检索方式 | 语义检索 | 多层召回（global / session / task） |
+| 时间敏感 | 标注源时间但内容静态 | 时间序列，新覆盖旧 |
 
-**检索阶段**：用户输入经过 embedding 转为向量，在向量库中找到最相似的 chunk，注入到 Context 中供 LLM 参考。LLM 基于检索到的内容回答，并附带引用来源。
+详见 [Memory 模块](../memory/)。
 
-检索可在两个时机触发：
-1. Context Builder 前置检索（每轮自动）
-2. Agent 通过 Tool 主动检索（按需）
+---
 
-## 配置示例
+## 7. RAG 在 multi-agent 中
 
-```yaml
-retrieval:
-  provider: llamaindex
-  vector_store: qdrant
+不同 sub-agent 看到不同 index：
+
+```python
+class CoderAgent(sigma.Agent):
+    rag_indices = ["code-myproject", "code-stdlib"]
+
+class ResearcherAgent(sigma.Agent):
+    rag_indices = ["industry-pig-farming", "user-notes"]
 ```
 
-## 扩展方式
+`AgentContext.rag_indices` 限制 sub-agent 只能查哪些 index——既是隔离也是性能优化。
 
-### 添加新检索后端
+---
 
-1. 创建文件 `src/rag/<backend>.py`
-2. 实现 `RetrievalPort` Protocol
-3. 注册到 `src/rag/registry.py`
-4. 添加配置项
+## 8. Phase 0 / V3 实现路径
 
-### 约束
+V3 是 RAG 真正落地的版本。之前的版本可以用极简实现（直接全文喂给 LLM）应付小规模 demo。
 
-- Chunking 和 Embedding 策略可独立替换
-- 检索结果必须包含来源信息（用于 citation）
-- 索引更新不能阻塞检索
+V3 必做：
+- 至少接 1 个 vector store
+- Chunking pipeline
+- Multi-index 管理 CLI
+- 检索时带引用
 
-## 演进路径
+V4+ 可加：
+- GraphRAG / Hybrid retrieval
+- Re-ranking
+- 自动 index 更新（监听文件变更）
 
-| 阶段 | 能力 | 候选方案 |
-|------|------|---------|
-| V0 | 不做 | — |
-| V1 | 基础向量检索，文档导入，带引用回答 | LlamaIndex + Qdrant |
-| V2 | 混合检索（向量+关键词）、Rerank | Cohere Rerank, BM25 |
-| V3 | GraphRAG、Agentic RAG、多模态文档 | LightRAG, 知识图谱 |
+---
 
-## 可扩展能力
+## 9. 实现位置
 
-- Chunking 策略可插拔（固定大小 / 语义分割 / 文档结构感知）
-- Embedding 模型可替换
-- 检索策略可组合（向量 / 关键词 / 图 / 混合）
-- 索引更新策略（实时 / 批量 / 增量）
-- Rerank 模型可插拔
+```
+src/rag/
+  manager.py          # Multi-index 管理
+  indexer.py          # Indexing pipeline (chunk / embed / store)
+  retriever.py        # 检索接口
+  citation.py         # Citation 数据结构
+  
+  stores/
+    qdrant.py         # 可能的 backend
+    chroma.py
+```
 
-## 相关文档
+---
 
-- [Context Builder](../context/) — RAG 结果的注入方
-- [Memory 模块](../memory/) — 另一个知识来源
-- [Ports & Adapters](../../architecture/ports-and-adapters.md)
+## 10. 未决问题
+
+| 问题 | 状态 |
+|---|---|
+| Vector store 主选哪个 | V3 落地时定 |
+| Chunking 默认策略 | V3 |
+| 是否需要 RetrievalPort（即多 RAG 实现是否真有需求） | 未决——V3 落地后看 |
+| GraphRAG / Hybrid retrieval 何时引入 | V4+ |
+
+---
+
+## 11. 相关文档
+
+- [Context 模块](../context/) — RAG 输出的消费者
+- [Memory 模块](../memory/) — RAG 的"姐妹模块"
+- [架构总览](../../architecture/overview.md)
+- [设计决策日志 § 4.3](../../architecture/design-log.md)

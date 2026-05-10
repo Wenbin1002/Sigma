@@ -6,75 +6,79 @@
 - Git
 - 一个代码编辑器（推荐 VS Code / Cursor）
 
-## 环境搭建
-
-```bash
-# Clone 仓库
-git clone <repo-url>
-cd Sigma
-
-# 安装依赖（开发模式）
-pip install -e ".[dev]"
-
-# 复制配置模板
-cp config.example.yaml config.yaml
-# 编辑 config.yaml 填入必要的 API key
-```
-
 ## 项目当前状态
 
-Sigma 处于**早期开发阶段**：
+> 🚧 **早期设计阶段** — 架构基本定型，**`src/` 尚未开始编码**。
 
-- ✅ 架构设计完成
-- ✅ 接口定义（Port Protocol）设计完成
-- 🚧 V0 实现进行中
-- 📋 代码目录 `src/` 正在建设
+这意味着当前最需要的贡献是：
 
-这意味着当前最需要的贡献是：实现各模块的 Adapter、完善文档、在 `experiments/` 中做技术验证。
+- 阅读 [设计决策日志](../architecture/design-log.md)，对设计提反馈
+- 在 `experiments/` 中跑通技术验证（LangGraph 用法、Trace 协议、cost guard 实现）
+- 等代码骨架建好后，按 [V0 退出标准](../roadmap.md#v0hello-agent最小可用骨架) 贡献
 
-## 快速理解架构
+## 快速理解 Sigma
 
 **三句话版本：**
 
-1. 所有模块通过 Port（Protocol 接口）通信，`runtime/` 只看到接口不看到实现
-2. 切换任何技术方案 = 改 `config.yaml` 里的 provider 字段
-3. 新增技术 = 写 adapter 文件 + 注册到 registry + 加配置
+1. Sigma 是**通用 personal AI 助手**，对标 ChatGPT + Codex 的本地版本
+2. **Chat + Task 双视图**统一 task queue；**Multi-agent 三级回退**保证执行可控
+3. **三层正交扩展**：Tool（行为）/ Skill（知识）/ Agent（执行单元）
 
-**想深入了解**：阅读 [架构总览](../architecture/overview.md)。
+**5 分钟版本**：读 [README.md](../../README.md) 和 [架构总览](../architecture/overview.md) 的 § 1-2。
 
-## 第一次贡献建议
+**深入版本**：按下文"应该先读的文件"顺序读完。
 
-### 最简单的开始
+## 日常使用（待 V0 实现后）
 
-1. 阅读一个模块文档（如 [Voice](../modules/voice/)）
-2. 在 `experiments/` 中写一个 proof-of-concept
-3. 如果验证可行，转为正式 Adapter 贡献
+```bash
+# Chat 模式
+sigma chat                              # 进入对话流
+sigma chat "一句话问题"                 # 单次问答
+sigma chat --resume <session_id>        # 续之前的 session
 
-### 常见贡献类型
+# Task 模式
+sigma task new "..."                    # 一次性 task
+sigma task new "..." --daily 09:00      # 每天 9 点跑（V4）
+sigma task list                         # 任务列表
+sigma task view <id>                    # 查看进度
+sigma task pause/resume/cancel <id>
 
-| 类型 | 难度 | 说明 |
-|------|------|------|
-| 添加 Adapter | ⭐⭐ | 为现有模块接入新 provider |
-| 文档改进 | ⭐ | 修正、补充、翻译 |
-| 实验验证 | ⭐⭐ | 在 experiments/ 中对比方案 |
-| Bug 修复 | ⭐⭐ | 修复已知问题 |
-| 新功能 | ⭐⭐⭐ | 需先 Issue 讨论 |
+# Trace
+sigma trace view <trace_id>             # 浏览器看某次执行
+sigma trace replay <trace_id>           # 基于历史重跑
+```
 
 ## 应该先读的文件
 
-按优先级排列：
+按优先级：
 
-1. **[CLAUDE.md](../../CLAUDE.md)** — 项目规则总纲（3 分钟）
-2. **[架构总览](../architecture/overview.md)** — 系统设计（10 分钟）
-3. **[依赖规则](../architecture/dependency-rules.md)** — Import 约束（5 分钟）
-4. **你感兴趣的模块文档** — 如 [Voice](../modules/voice/)、[Agent](../modules/agent/)（5 分钟）
-5. **[添加 Adapter](adding-an-adapter.md)** — 如果准备写代码（5 分钟）
+1. **[README.md](../../README.md)** — Sigma 是什么 / 不是什么（3 分钟）
+2. **[CLAUDE.md](../../CLAUDE.md)** — 项目规则总纲（3 分钟）
+3. **[架构总览](../architecture/overview.md)** — 系统设计（10 分钟）
+4. **[Chat / Task 模式](../architecture/chat-task-modes.md)** — 双视图核心（5 分钟）
+5. **[Multi-agent](../architecture/multi-agent.md)** — Sub-agent 三级回退（10 分钟）
+6. **[依赖规则](../architecture/dependency-rules.md)** — Import 约束（5 分钟）
+7. **[设计决策日志](../architecture/design-log.md)** — 每个决定的来龙去脉（按需）
+8. **你感兴趣的模块文档** — `docs/modules/<name>/`（5-10 分钟/个）
+9. **[添加扩展](adding-an-adapter.md)** — 准备写代码时（5 分钟）
+
+## 第一次贡献建议
+
+按门槛从低到高（详见 [CONTRIBUTING.md](../../CONTRIBUTING.md)）：
+
+| 类型 | 门槛 | 怎么开始 |
+|------|------|---------|
+| 写 Skill | ⭐ | 写一段 markdown，描述某个领域的方法论。**不需要 Python**。详见 [Skill 模块](../modules/skill/) |
+| 接 LLM provider / Tool | ⭐⭐ | 实现 Port + 注册。详见 [添加扩展](adding-an-adapter.md) |
+| 写 Sub-agent | ⭐⭐⭐ | 继承 `sigma.Agent`，定义 graph。详见 [Multi-agent](../architecture/multi-agent.md) |
+| 内核改进 | ⭐⭐⭐⭐ | Trace viewer / Cost guard / Context engine。先开 issue 讨论 |
+| 文档 | ⭐ | 修正、补充、翻译 |
 
 ## 开发工作流
 
 ```
 1. git fetch origin
-2. git checkout -b feat/my-feature origin/main
+2. git checkout -b <type>/<short-desc> origin/main
 3. 开发 + 测试
 4. git add + git commit（遵循 commit 规范）
 5. git push + 提 PR
@@ -86,4 +90,5 @@ Sigma 处于**早期开发阶段**：
 
 - [贡献指南](../../CONTRIBUTING.md) — 完整开发流程
 - [代码规范](code-style.md) — 命名和风格
-- [添加 Adapter](adding-an-adapter.md) — 最常见贡献方式的详细步骤
+- [添加扩展](adding-an-adapter.md) — Tool / Skill / Sub-agent / LLM 添加步骤
+- [路线图](../roadmap.md) — 知道项目走到哪一步了

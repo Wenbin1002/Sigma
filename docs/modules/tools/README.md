@@ -1,96 +1,249 @@
-# Tools
+# Tools 模块
 
-> 让 Agent 能调用外部工具：搜索、读写文件、执行代码、操作浏览器。
+> Tool 是 Sigma 的**行为扩展点**——能做什么动作。
 
-## 在架构中的位置
+> 详见 [架构总览 § 4.2](../../architecture/overview.md#42-tool)。
 
-- **所属层**: Adapters
-- **Port 接口**: `src/ports/tools.py` → `ToolPort`
-- **实现目录**: `src/tools/`
-- **被谁调用**: Agent Runtime（内部 Tool Router）
-- **依赖**: MCP Server、外部工具服务
+---
 
-## Port 接口定义
+## 1. 定位
+
+Tool 是 Sigma 三层扩展模型中"门槛最低"的一层：
+
+| | Tool | Skill | Agent |
+|---|---|---|---|
+| 扩展什么 | **行为** | 知识 / 方法论 | 执行单元 |
+| 写起来 | Python 函数（5 分钟） | Markdown（30 分钟） | Python 类 + graph（几小时-几天） |
+| LLM 调用 | 0 | 0（注入 prompt） | 多次 |
+
+---
+
+## 2. Tool 的三种来源
+
+### 2.1 内置 Python 函数（最简）
 
 ```python
-class ToolPort(Protocol):
-    async def execute(self, name: str, params: dict) -> str: ...
-    async def list_tools(self) -> list[ToolDef]: ...
+from sigma import tool
+
+@tool
+def read_file(path: str) -> str:
+    """读取文件内容。"""
+    with open(path) as f:
+        return f.read()
 ```
 
-## 可用实现
+文件放在 `src/tools/builtin/` 或用户的 `~/.sigma/tools/`。
 
-| 实现 | 类名 | 文件 | 配置值 | 状态 |
-|------|------|------|--------|------|
-| Native | `NativeTools` | `src/tools/native.py` | `native` | V0 |
-| MCP | `MCPTools` | `src/tools/mcp.py` | `mcp` | V1 planned |
+### 2.2 MCP Server（生态接入）
 
-## 工作原理
-
-Agent 在决策循环中判断需要调用工具时，通过 ToolPort 执行。工具系统负责：
-
-1. **工具发现**：列出可用工具及其参数定义
-2. **风险分级**：标记每个工具的风险等级（read / write / destructive）
-3. **执行控制**：高风险操作暂停并请求用户确认
-4. **结果返回**：工具执行结果以字符串形式返回给 Agent
-
-MCP（Model Context Protocol）模式下，工具通过标准协议动态发现和调用，支持远程 MCP Server。
-
-## 配置示例
+挂载 MCP server，复用 MCP 工具生态：
 
 ```yaml
 tools:
-  provider: native
-  # 或
-  provider: mcp
   mcp_servers:
-    - url: "http://localhost:3000"
+    - name: github
+      command: npx
+      args: ["@anthropic/mcp-github"]
+    - name: filesystem
+      command: npx
+      args: ["@modelcontextprotocol/server-filesystem", "/path"]
 ```
 
-## 风险分级
+Sigma 自动把 MCP server 暴露的 tool 接入到 ToolPort 体系。
 
-| 级别 | 说明 | 用户确认 |
-|------|------|---------|
-| `read` | 只读操作（搜索、查看） | 不需要 |
-| `write` | 写入操作（创建文件、发消息） | 可配置 |
-| `destructive` | 破坏性操作（删除、修改系统） | 必须确认 |
+### 2.3 HTTP Tool（V4+）
 
-## 扩展方式
+远程 HTTP API 包装为 tool（暂不实现）。
 
-### 添加新工具
+---
 
-1. 创建文件 `src/tools/<tool_set>.py`
-2. 实现 `ToolPort` Protocol
-3. 注册到 `src/tools/registry.py`
-4. 添加配置项
+## 3. ToolPort
 
-或直接接入现有 MCP Server。
+```python
+class ToolPort(Protocol):
+    name: str
+    description: str
+    parameters_schema: dict           # JSON Schema (OpenAI tool calling 格式)
+    
+    async def execute(self, **kwargs) -> ToolResult: ...
+```
 
-### 约束
+详见 [Ports & Adapters § 3.2](../../architecture/ports-and-adapters.md#32-toolport)。
 
-- 工具执行结果必须是可序列化的字符串
-- 高风险操作必须有确认机制
-- 工具执行应有超时控制
+**ToolResult** 是结构化的：
 
-## 演进路径
+```python
+@dataclass
+class ToolResult:
+    success: bool
+    data: Any
+    artifact: Artifact | None = None    # 文件 / 图片 / 报告等
+    error: str | None = None
+    metadata: dict = field(default_factory=dict)
+```
 
-| 阶段 | 能力 | 候选方案 |
-|------|------|---------|
-| V0 | 几个硬编码 Python 函数 | Native |
-| V1 | MCP 协议接入，动态工具发现 | MCP Client |
-| V2 | 沙箱执行、权限模型、工具组合 | Docker sandbox |
-| V3 | 工具市场、用户自定义工具、运行时注册 | MCP Server 生态 |
+---
 
-## 可扩展能力
+## 4. Tool 注册
 
-- 风险分级自动化（静态分析工具签名）
-- 工具结果缓存（相同输入不重复执行）
-- 工具编排（一个高级工具 = 多个底层工具的 workflow）
-- 浏览器操作、代码执行、文件系统操作作为标准工具集
-- 用户自定义工具运行时热加载
+```python
+# src/tools/registry.py
+REGISTRY: dict[str, type[ToolPort]] = {
+    "read_file": ReadFileTool,
+    "write_file": WriteFileTool,
+    "shell": ShellTool,
+    "search_web": SearchWebTool,
+    ...
+}
+```
 
-## 相关文档
+启用通过 config：
 
-- [Agent 模块](../agent/) — 工具的调用方
-- [Ports & Adapters](../../architecture/ports-and-adapters.md)
-- [运行模式](../../architecture/runtime-modes.md) — Realtime 模式下的 tool calling
+```yaml
+tools:
+  builtin:
+    - read_file
+    - write_file
+    - shell
+    - search_web
+  mcp_servers: [...]
+```
+
+未启用的 tool 不进入 agent 视野。
+
+---
+
+## 5. Agent 看到 Tool 的方式
+
+每个 sub-agent 声明自己能用哪些 tool：
+
+```python
+class CoderAgent(sigma.Agent):
+    tools = [read_file, write_file, shell, run_tests]
+```
+
+Master agent 看所有启用的 tool（或从 supervisor 那里得到精简列表）。
+
+LLM 调用时，工具以 OpenAI tool calling schema 注入：
+
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "...",
+        "parameters": { ... }
+      }
+    },
+    ...
+  ]
+}
+```
+
+---
+
+## 6. Tool 的安全考虑
+
+某些 tool 危险（`shell`、`write_file`、`delete_file`）。控制方式：
+
+### 6.1 Allowlist（启动时）
+
+```yaml
+tools:
+  builtin:
+    - read_file        # 安全
+    - shell            # 危险但启用
+  shell:
+    allowed_commands: [git, ls, cat, ...]   # 子级 allowlist
+```
+
+### 6.2 用户确认（运行时）
+
+某些 tool 标记为 `requires_approval: true`，调用时 agent 输出 `needs_approval` chunk，等用户在 chat / Task 视图确认。
+
+```python
+@tool(requires_approval=True)
+def delete_file(path: str) -> bool:
+    ...
+```
+
+### 6.3 沙箱（V5+）
+
+危险 tool 在 docker / firejail 沙箱里跑（不在 Phase 1 范围）。
+
+---
+
+## 7. MCP 接入细节
+
+启动时：
+1. 读 config.yaml 的 `mcp_servers`
+2. 启动每个 MCP server（subprocess）
+3. 通过 MCP 协议握手 / 列出 server 暴露的 tool
+4. 包装成 ToolPort 注册到 registry
+
+运行时：
+- Agent 调 MCP tool 跟调内置 tool 完全一样
+- 失败时（MCP server 挂了）通过 BlockedException 报告
+- Trace 里标注 tool 来源（builtin / mcp:github / mcp:filesystem）
+
+---
+
+## 8. 内置 Tool 清单（V0/V1）
+
+| Tool | 用途 |
+|---|---|
+| `read_file` | 读文件 |
+| `write_file` | 写文件 |
+| `list_dir` | 列目录 |
+| `shell` | 执行 shell 命令（带 allowlist） |
+| `search_web` | 搜索网络 |
+| `fetch_url` | 抓取网页 |
+| `recall_memory` | 调用 [Memory](../memory/) 召回 |
+| `search_knowledge` | 调用 [RAG](../rag/) 检索 |
+| `load_skill` | 加载 [Skill](../skill/) 全文 |
+| `create_task` | 创建后台 task（chat → task 升级用） |
+| `cancel_task` | 取消 task |
+
+---
+
+## 9. 实现位置
+
+```
+src/tools/
+  base.py             # ToolPort 基类、@tool 装饰器
+  registry.py         # 注册表 + 工厂
+  
+  builtin/
+    file.py           # read_file / write_file / list_dir
+    shell.py          # shell tool + allowlist
+    web.py            # search_web / fetch_url
+    memory.py         # recall_memory
+    knowledge.py      # search_knowledge
+    skill.py          # load_skill
+    task.py           # create_task / cancel_task
+  
+  mcp/
+    client.py         # MCP server 客户端
+    adapter.py        # MCP tool → ToolPort 包装
+```
+
+---
+
+## 10. 未决问题
+
+| 问题 | 状态 |
+|---|---|
+| Shell tool 的 allowlist 默认值 | V0 落地时定 |
+| `requires_approval` 的 UX（chat 弹卡片 vs Web UI 弹窗） | V1 |
+| 沙箱方案 | V5+ |
+
+---
+
+## 11. 相关文档
+
+- [Skill 模块](../skill/) — Skill 引用 tool
+- [Agent 模块](../agent/) — Agent 调用 tool
+- [Ports & Adapters § 3.2](../../architecture/ports-and-adapters.md#32-toolport)
+- [架构总览](../../architecture/overview.md)
