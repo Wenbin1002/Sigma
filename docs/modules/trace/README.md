@@ -1,75 +1,184 @@
-# Trace
+# Trace 模块
 
-> 追踪 Agent 的每一步执行，用于调试、回放和质量评估。
+> Sigma 的可观察性系统——**JSONL 默认 + 本地 HTML viewer + replay 能力**。
 
-## 在架构中的位置
+> Trace 是 Sigma 真正的差异化能力之一（详见 [架构总览 § 1](../../architecture/overview.md#1-sigma-是什么)）。
 
-- **所属层**: 横切关注点（贯穿所有层）
-- **性质**: 内部基础设施模块（**不走 Port 模式**）
-- **目录**: `src/trace/`
-- **被谁调用**: 所有模块直接 import `trace.api`
-- **依赖**: 存储后端
+---
 
-## 为什么不走 Port
+## 1. 定位
 
-Trace 和 Agent/Memory/RAG 本质不同：
+LangSmith / Langfuse 是云端付费的 trace 平台。Sigma 的差异化方向：
 
-- 不存在"今天 JSONL 明天 Langfuse 后天 OTel 来回切"的场景
-- 定了就不怎么动，不需要 Registry + config 动态选择
-- 调用遍布全局，过度抽象反而碍事
+- **本地优先**：trace 落到 `~/.sigma/traces/`，不上传任何地方
+- **零依赖**：JSONL 文件 + 一个本地 HTML viewer，开箱即用
+- **Replay**：基于 trace 重跑某次执行（debug 利器）
+- **教学优先**：trace 内容自包含，新手能看懂"agent 这次做了什么决策"
 
-做法：暴露固定 API，内部实现随时可换，调用方不感知。
+---
 
-## API
+## 2. 捕获什么
+
+每个 task / session 一个 trace 文件，记录所有有意义的事件：
+
+| 事件类型 | 内容 |
+|---|---|
+| `agent_start` / `agent_end` | 哪个 agent 开始 / 结束 |
+| `node_start` / `node_end` | LangGraph node 边界（input / output / duration） |
+| `llm_call` | model / messages / response / tokens / cost / duration |
+| `tool_call` | tool name / args / result / duration |
+| `agent_handoff` | 主 agent 派给 sub-agent（task description / context） |
+| `proxy_decision` | L2 主 agent 代答（reason / question / answer / 推理） |
+| `user_input` | L3 用户回复（chat 追问 / task resume） |
+| `state_transition` | task 状态变更（queued → running → paused → ...） |
+| `checkpoint` | LangGraph checkpoint 写入 |
+| `error` | 任何异常 |
+
+---
+
+## 3. JSONL 格式
+
+每行一个 JSON event：
+
+```jsonl
+{"ts":"2026-05-09T09:30:00Z","type":"agent_start","agent":"master","task_id":"t-123","trace_id":"tr-001"}
+{"ts":"2026-05-09T09:30:01Z","type":"llm_call","model":"gpt-4o","prompt_tokens":1500,"completion_tokens":200,"cost_usd":0.012,"duration_ms":850,"trace_id":"tr-001","span_id":"sp-002"}
+{"ts":"2026-05-09T09:30:02Z","type":"tool_call","tool":"search_web","args":{"q":"..."},"duration_ms":1200,"trace_id":"tr-001","span_id":"sp-003"}
+```
+
+字段约定：
+- `ts`：ISO 8601 时间戳
+- `type`：事件类型
+- `trace_id`：整个 task / session 的 trace ID
+- `span_id`：单个事件的 ID
+- `parent_span_id`：父 span（构成树状结构）
+- 各类型自己的 payload
+
+---
+
+## 4. 本地 HTML Viewer
+
+启动方式：
+
+```bash
+sigma trace view <trace_id>           # 打开浏览器看某次执行
+sigma trace list                      # 列出最近 trace
+sigma trace replay <trace_id>         # 基于 trace 重跑
+```
+
+Viewer 形态：
+- **时间轴**：每个事件按时间排列
+- **嵌套树**：agent / sub-agent / tool call 的层级
+- **Cost 面板**：累计 token / 费用 / 各 model 占比
+- **Diff 视图**：前后两次 trace 对比（用于 debug 行为变化）
+- **过滤**：按 event type / agent / time range
+
+---
+
+## 5. Replay
+
+基于 trace 重跑：
+
+```bash
+sigma trace replay <trace_id> --modify-prompt "..."
+sigma trace replay <trace_id> --skip-tools     # 干跑，不真的调 tool
+sigma trace replay <trace_id> --diff           # 对比新旧
+```
+
+**用途**：
+- Debug：某次决策错了，改 prompt 重跑看是否修复
+- 优化：调整 cost-aware 路由策略，重跑历史 trace 看成本变化
+- 测试：把好的 trace 当 regression case
+
+实现基础：LangGraph 的 checkpoint + 事件回放。
+
+---
+
+## 6. TracerPort
 
 ```python
-# src/trace/api.py — 所有模块直接 import 这个
-from trace.api import log, span
-
-async def log(event: TraceEvent) -> None: ...
-def span(name: str) -> ContextManager: ...
+class TracerPort(Protocol):
+    async def record_event(self, event: TraceEvent) -> None: ...
+    async def flush(self) -> None: ...
 ```
 
-## 工作原理
+Adapter：
+- `JSONLTracer`（默认）：写本地 `~/.sigma/traces/<trace_id>.jsonl`
+- `OTelTracer`（V5+）：导出到 OpenTelemetry collector
+- `LangfuseTracer` / `LangSmithTracer`（V5+，可选接入云端）
 
-Trace 模块记录系统运行的每一步：
+---
 
-- **每轮对话**：输入、输出、延迟、token 消耗
-- **工具调用**：调用了什么、参数、结果、耗时
-- **成本统计**：累计 token 用量和费用
-- **错误追踪**：失败原因、重试次数
+## 7. Trace 在 multi-agent 中
 
-每个 trace event 包含时间戳、类型、数据和 span 层级关系。通过 span 嵌套，可以还原完整的执行路径树。
+嵌套 agent 的 trace 是树状的：
 
-## 配置示例
-
-```yaml
-trace:
-  output_dir: ./traces/
+```
+trace_id: tr-001
+└── agent_start (master)
+    ├── llm_call
+    ├── agent_handoff → researcher
+    │   └── agent_start (researcher) [parent: master]
+    │       ├── llm_call
+    │       ├── tool_call (search_web)
+    │       └── agent_end
+    ├── agent_handoff → coder
+    │   └── agent_start (coder) [parent: master]
+    │       └── ...
+    └── agent_end
 ```
 
-## 约束
+Viewer 里能折叠/展开每一层。
 
-- Trace 记录不能阻塞主流程（异步写入）
-- 敏感信息需要脱敏处理
-- Span 嵌套层级要清晰，便于调试
+---
 
-## 演进路径
+## 8. 隐私
 
-| 阶段 | 能力 | 做法 |
-|------|------|------|
-| V0 | 本地 JSONL 日志 | `src/trace/backend.py` 写 JSONL |
-| V1 | 结构化 trace（每步耗时、token、工具调用链） | 丰富 event 类型 |
-| V2 | 在线可视化、成本看板 | 内部换为 Langfuse SDK，API 不变 |
-| V3 | Eval 框架、A/B 测试 | 扩展 API |
+Trace 默认存本地，不上传任何地方。但 LLM messages 可能含敏感信息（用户私信、API key）。
 
-## 后续能力
+**安全机制**：
+- 默认开启敏感信息掩码（按 regex 匹配 API key / token / email）
+- 用户可在配置里调整 / 关闭
+- `sigma trace clean` 删除指定 trace
 
-- 成本统计和预算告警
-- 对话质量自动评分
-- Replay：回放历史对话用于调试
-- 性能 profiling（每步延迟分布、瓶颈定位）
+---
 
-## 相关文档
+## 9. 实现位置
 
-- [架构总览](../../architecture/overview.md)
+```
+src/trace/
+  base.py             # TracerPort
+  schema.py           # TraceEvent 数据结构
+  registry.py         # tracer registry
+  
+  jsonl.py            # JSONLTracer（默认）
+  otel.py             # OTelTracer (V5+)
+  
+  viewer/             # 本地 HTML viewer
+    server.py         # 启动 viewer 服务
+    static/           # 前端
+  
+  replay/             # Replay 引擎
+    engine.py
+    diff.py
+```
+
+---
+
+## 10. 未决问题
+
+| 问题 | 状态 |
+|---|---|
+| Trace 文件大小管理（rotation / 压缩 / 删除策略） | V2 |
+| Viewer 前端选型（vanilla JS / React / Svelte） | V2 |
+| Replay 的精确语义（输入完全相同时 LLM 输出不一致怎么办） | V3 |
+| 跟 LangSmith / Langfuse 的兼容（导入导出） | V5+ |
+
+---
+
+## 11. 相关文档
+
+- [架构总览 § 3.2](../../architecture/overview.md#32-sigma-自己造-vs-直接用-langgraph) — Trace 是 Sigma 自己长的肌肉
+- [Multi-agent](../../architecture/multi-agent.md) — Multi-agent trace 嵌套
+- [Ports & Adapters § 3.3](../../architecture/ports-and-adapters.md#33-tracerport)
+- [设计决策日志](../../architecture/design-log.md)

@@ -1,109 +1,174 @@
-# Context Builder
+# Context 模块
 
-> 每轮 Agent 调用前，组装 LLM 应该看到的完整上下文。决定"LLM 看到什么"。
+> Context Engine = Sigma 的核心算法之一：**决定每次 LLM 调用看到什么**。
 
-## 在架构中的位置
+> 这是 Sigma 真正的差异化能力之一（context engineering）。
 
-- **所属层**: Nodes（Runtime Graph 中的前置节点）
-- **Port 接口**: `src/ports/context_builder.py` → `ContextBuilderPort`
-- **实现目录**: `src/context/`
-- **被谁调用**: Runtime（Pipeline 中 Agent Node 之前）
-- **依赖**: MemoryPort, RetrievalPort（通过 ports）
+---
 
-## Port 接口定义
+## 1. 定位
+
+LLM 一次调用能塞进去的 token 有限（4k / 8k / 32k / 128k / 200k）。**塞什么、不塞什么、怎么排序、怎么压缩**——这是 context engineering，决定 agent 行为质量的核心。
+
+通用 agent 框架里 context 一般是固定 prompt + 对话历史。Sigma 把它抽出来作为独立模块，按需拼装：
+
+```
+最终送进 LLM 的 context =
+    System prompt 骨架
+  + Skill metadata 索引（按需 load_skill 全文）
+  + 当前 task / chat 状态
+  + 历史对话（可能压缩）
+  + 召回的 memory（global / session / task）
+  + RAG 检索结果（带引用）
+  + 当前可用 tool 清单
+  + 当前 sub-agent 选项（如果走 supervisor）
+```
+
+---
+
+## 2. 拼装来源
+
+### 2.1 静态来源（启动时确定）
+
+- System prompt 骨架（Sigma 自身、当前 agent）
+- 工具清单
+- Sub-agent 清单
+- Skill metadata 索引
+
+### 2.2 动态来源（每轮调用前查询）
+
+- 历史对话（按 token budget 截断 / 压缩）
+- Memory 召回（多层）
+- RAG 检索（多 index）
+- 当前 task state / artifact 引用
+
+详见 [Memory 模块](../memory/)、[RAG 模块](../rag/)。
+
+---
+
+## 3. 拼装策略
+
+### 3.1 Token Budget
+
+每次拼装前确定本次 budget：
+
+```
+budget = model_max_tokens
+       - reserved_for_response
+       - reserved_for_tool_args
+```
+
+### 3.2 优先级（核心 → 边缘）
+
+按优先级逐项加，超 budget 时丢弃低优先级：
+
+1. System prompt（必加，不可丢）
+2. 当前 user message
+3. 最近 N 轮对话
+4. 主动召回的 memory（用户偏好 / 上次决策）
+5. 当前 task state
+6. RAG 检索结果（按 score）
+7. 历史压缩摘要（前 N-X 轮的总结）
+8. 工具/agent 清单（如果太长可只放 description）
+
+### 3.3 历史压缩
+
+长对话超出 budget 时：
+
+- **滚动窗口**：保留最近 N 轮，更早的丢弃
+- **递归总结**：每过一定轮数，把"更早的对话"总结成一段，留摘要不留原文
+- **关键消息保留**：用户的关键决策 / 系统的关键回复永不丢
+
+策略可配置，未来可针对场景优化。
+
+---
+
+## 4. 多源拼装的挑战
+
+每个来源都可能与其他来源冲突或重复：
+
+| 冲突类型 | 例子 | 处理 |
+|---|---|---|
+| 重复信息 | Memory 和历史对话都说了"用户喜欢简洁回答" | 去重，保留更具体的 |
+| 时间陈旧 | RAG 检出的是 2020 年的资料，对话提到 2024 现状 | 标注时间，让 LLM 自己判断 |
+| 上下文歧义 | "那个文件" 在多个 memory 里指不同文件 | 提示 LLM 警告，必要时升级到 L3 让用户澄清 |
+
+---
+
+## 5. Context vs Memory vs RAG
+
+容易混淆，澄清一下：
+
+| 模块 | 职责 | 关系 |
+|---|---|---|
+| **Memory** | 跨会话/会话内的状态存储 | Context 的来源之一 |
+| **RAG** | 文档 / 代码 / 知识库的检索 | Context 的来源之一 |
+| **Context Engine** | 把上面所有源拼成最终 LLM input | 消费者 / 编排者 |
+
+**Memory 和 RAG 都不直接面向 LLM**——它们的输出进入 Context Engine 拼装。
+
+---
+
+## 6. Context 在 Sub-agent 中的传递
+
+Master agent 派 sub-agent 时，传递的 `AgentContext`：
 
 ```python
-class ContextBuilderPort(Protocol):
-    async def build(self, input: str, state: ConversationState) -> Context: ...
-
 @dataclass
-class Context:
-    system_prompt: str
-    messages: list[dict]
-    memories: list[MemoryItem]
-    references: list[Chunk]
+class AgentContext:
+    chat_history: list[Message]        # 父对话历史（可压缩）
+    parent_artifacts: list[Artifact]   # 父 agent 已有的产物
+    parent_state: dict                 # 父 agent 想传的额外信息
+    
+    # 共享资源访问
+    memory_scope: MemoryScope          # 该 sub-agent 能看到哪一层 memory
+    rag_indices: list[str]             # 该 sub-agent 能用哪些 RAG index
 ```
 
-## 与 Agent 的关系
+Sub-agent 内部可能再次组装自己的 context（比 master 更聚焦），不直接把 master 的 context 全塞 LLM。
+
+---
+
+## 7. 不开放替换
+
+Context Engine 是 Sigma 的**核心算法**，**不开放 Port 替换**——
+
+- 用户可以调整策略（通过配置）
+- 用户可以扩展来源（通过新增 memory adapter / RAG index / skill）
+- 但不能换整个 Context Engine 实现
+
+详见 [Ports & Adapters § 1.2](../../architecture/ports-and-adapters.md#12-哪些不是-port为什么)。
+
+---
+
+## 8. 实现位置
 
 ```
-input + state
-     │
-     ▼
-Context Builder ──→ Context（组装好的上下文）
-                          │
-                          ▼
-                    Agent（纯决策图）
-                          │
-                          ▼
-                       output
+src/context/
+  engine.py            # Context Engine 主类
+  budget.py            # Token budget 管理
+  prioritize.py        # 优先级策略
+  compress.py          # 历史压缩
+  assemble.py          # 多源拼装
+  agent_context.py     # AgentContext 数据结构
 ```
 
-- Context Builder = 前置，被动，每轮开始前调用
-- Agent 运行中主动查资料 = Tool 调用 RAG/Memory，走工具链路
+---
 
-**不做**：决策、工具调用、循环控制（这些是 Agent 的事）。
+## 9. 未决问题
 
-## 可用实现
+| 问题 | 状态 |
+|---|---|
+| 历史压缩的具体策略（递归总结 / 滚动窗口 / 混合） | V3 落地时定 |
+| 不同 sub-agent 的 context 隔离强度 | V2 落地时定 |
+| Context engineering 的可观察性（哪部分占了多少 token） | V3 |
 
-| 实现 | 类名 | 文件 | 配置值 | 状态 |
-|------|------|------|--------|------|
-| Passthrough | `PassthroughBuilder` | `src/context/passthrough.py` | `passthrough` | V0 |
+---
 
-## 工作原理
+## 10. 相关文档
 
-Context Builder 作为 Runtime Graph 中的一个 Node，内部可展开为子图（Memory / RAG / History 并行执行后汇总）。
-
-子图结构：
-```
-START ─┬→ recall_memory ──┐
-       ├→ search_rag ─────┼→ assemble → Context
-       └→ compress_history┘
-```
-
-输出的 Context 对象包含：system prompt、压缩后的消息历史、召回的记忆、RAG 检索结果。Agent 直接消费这个 Context 做决策。
-
-## 配置示例
-
-```yaml
-context:
-  provider: passthrough
-```
-
-## 扩展方式
-
-### 添加新策略
-
-1. 创建文件 `src/context/<strategy>.py`
-2. 实现 `ContextBuilderPort` Protocol
-3. 注册到 `src/context/registry.py`
-4. 添加配置项
-
-### 约束
-
-- Context Builder 不做决策，只做组装
-- 当 token 预算有限时需要有注入优先级策略
-- 输出的 Context 必须是可序列化的 dataclass
-
-## 演进路径
-
-| 阶段 | 能力 | 候选方案 |
-|------|------|---------|
-| V0 | 透传（input 直接包成 messages） | Passthrough |
-| V1 | 历史滑动窗口 + token 截断 | 简单截断 |
-| V2 | Memory 召回 + RAG 注入 + 历史摘要压缩 | LLM 摘要 |
-| V3 | 动态策略（按任务类型决定注入内容）、多 Agent 共享 | — |
-
-## 可扩展能力
-
-- 压缩策略可插拔（截断 / 摘要 / 混合）
-- 注入优先级（当 token 预算有限时，先保证什么）
-- 多 Agent 场景下 context 隔离与共享
-- Prompt 模板管理（按场景切换 system prompt）
-
-## 相关文档
-
-- [Agent 模块](../agent/) — Context 的消费方
-- [Memory 模块](../memory/) — 记忆召回源
-- [RAG 模块](../rag/) — 检索结果源
-- [运行模式](../../architecture/runtime-modes.md) — Context Builder 在 Pipeline 中的位置
+- [架构总览](../../architecture/overview.md)
+- [Memory 模块](../memory/)
+- [RAG 模块](../rag/)
+- [Agent 模块](../agent/) — Sub-agent context 传递
+- [设计决策日志 § 4.3](../../architecture/design-log.md) — RAG 多 index、Memory 分层的洞察
