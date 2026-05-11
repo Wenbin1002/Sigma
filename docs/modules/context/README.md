@@ -83,6 +83,8 @@ token_count(content) <= threshold?
             └─ ref: 原文存储，按需取回
 ```
 
+**Eager summarization**：summary 在内容产出时立即生成（tool 返回时 / agent yield 完时），不是等到 context 拼装时才调 LLM。这样后续 context 压缩只是"选择放 summary 还是原文"的纯取舍操作，零额外 LLM 调用。
+
 **为什么**：避免单次 tool 返回或 agent 产出撑爆 context window。同一套机制处理所有场景：
 
 | 场景 | 触发压缩的时机 |
