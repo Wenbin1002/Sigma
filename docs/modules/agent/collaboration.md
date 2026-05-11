@@ -70,6 +70,27 @@ async def run(self, task: str, ctx: Context):
     # aggregate
 ```
 
+### 并行失败处理
+
+**默认策略：best-effort**——部分 agent 失败时，其余正常完成的结果 + 失败信息一起传给下游 agent。
+
+```
+@search_academic  → ✅ 成功，数据...
+@search_news      → ❌ 失败，原因: timeout after 30s
+@search_social    → ✅ 成功，数据...
+         ↓
+synthesize 拿到部分结果 + 失败标记，自行判断结论可信度
+```
+
+下游 agent（如 synthesize）负责在不完整数据下做推理，并告知用户哪些源缺失。
+
+**为什么 best-effort 是默认**：
+- Sigma 核心场景（研究/分析）天然是多源尽力的——少一个信息源不致命
+- LLM 擅长处理不完整信息，只要明确告知"哪个缺了"
+- 实现简单——失败的 agent 返回 error chunk，跟成功结果一起传给下游
+
+> **TODO**：后续需要区分场景，支持可配置的失败策略（如 `require_all=True` 强制 all-or-nothing，适用于"数据必须完整才有意义"的场景如测试全通过才能部署）。这个暂不实现，等遇到真实需求再加。
+
 ---
 
 ## 嵌套
