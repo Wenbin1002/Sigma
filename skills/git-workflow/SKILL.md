@@ -12,7 +12,7 @@ description: |
 
 This skill exists to keep the git history clean, reviewable, and easy to navigate months later. A few ground rules flow from that goal:
 
-- **Commit messages in English** — the git log is a shared artifact; English keeps it consistent and plays well with CLI tools, GitHub search, and automation that parses conventional commits.
+- **All git text in English** — commit messages, PR titles, and PR bodies are all in English. The git log and GitHub history are shared artifacts; English keeps them consistent and searchable.
 - **No Co-Authored-By or Signed-off-by** — this project doesn't use DCO or co-author tracking; adding them creates noise in the log.
 - **No AI attribution in PR body** — don't add "Generated with Claude Code" or similar footers; the PR should look like any human-written PR.
 - **Scopes come from the reference table only** — inventing ad-hoc scopes (like `architecture` or `docs` as a scope) fragments the log and makes filtering unreliable.
