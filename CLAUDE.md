@@ -42,12 +42,15 @@ Chat + Task + Realtime 三种交互模式 / 基于 LangGraph 的 agent 内核 / 
 4. Sigma 启动后自动扫描，无需注册
 ```
 
-**新 Sub-agent**（继承 Agent 类）：
+**新 Sub-agent**（三档接入，详见 [Agent 模块 § 5](docs/modules/agent/README.md#5-三档接入模型)）：
 ```
 1. 创建目录 → ~/.sigma/agents/<name>/
-2. 写 agent.py，继承 sigma.Agent，定义 graph
-3. 声明 metadata（name / description / triggers / tools）
-4. Sigma 启动后自动扫描
+2. 写 agent.py，实现 Agent Protocol（name / description / triggers / tools / run）
+3. 选择接入层级：
+   - Level 0: Function Agent — 纯 async def run()，最简单
+   - Level 1: Stepped Agent — @step 装饰器，享受 checkpoint/resume
+   - Level 2: Graph Agent — 直接用 LangGraph，完全灵活
+4. Sigma 启动后自动扫描 ~/.sigma/agents/，无需手动注册
 ```
 
 **新 LLM provider**（多 provider 是真实需求）：
