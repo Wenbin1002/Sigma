@@ -15,14 +15,14 @@
 - **基于 LangGraph 的 agent 内核**，自己长 trace / cost guard / streaming 协议等横切肌肉
 - **三层正交扩展**：Tool（行为）+ Skill（知识）+ Agent（执行单元）
 - **Self-improvement**：从用户互动中学习（V2 起，V4 跟 Realtime 一起完整闭环）
-- **学习项目**，不追求生产级性能 / 不做 hosted service
+- **个人项目**，不做 hosted service，但工程标准不降——按生产级要求设计和实现
 
 ### 不是
 
 - ❌ 不是"可插拔 AI Agent 框架"（早期定位，已废弃）
 - ❌ 不是 coding agent（不锁场景）
 - ❌ 不是工作流编辑器（无可视化拖拽）
-- ❌ 不是 LangGraph 的劣化版（差异化在 trace viewer / cost guard / 三层扩展模型 / 教学优先）
+- ❌ 不是 LangGraph 的劣化版（差异化在 trace viewer / cost guard / 三层扩展模型）
 
 ### 锚定场景（V1 必须跑通的 4 个 demo）
 

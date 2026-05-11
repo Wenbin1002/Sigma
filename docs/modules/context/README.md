@@ -71,7 +71,39 @@ budget = model_max_tokens
 7. 历史压缩摘要（前 N-X 轮的总结）
 8. 工具/agent 清单（如果太长可只放 description）
 
-### 3.3 历史压缩
+### 3.3 内容压缩策略
+
+任何内容（agent 产出 / tool 返回 / RAG 召回）进入 context 前，按 token 阈值自动判断：
+
+```
+token_count(content) <= threshold?
+    YES → 直接放入 context（原文）
+    NO  → summary + ref
+            ├─ summary: LLM 生成的摘要，放入 context
+            └─ ref: 原文存储，按需取回
+```
+
+**Eager summarization**：summary 在内容产出时立即生成（tool 返回时 / agent yield 完时），不是等到 context 拼装时才调 LLM。这样后续 context 压缩只是"选择放 summary 还是原文"的纯取舍操作，零额外 LLM 调用。
+
+**为什么**：避免单次 tool 返回或 agent 产出撑爆 context window。同一套机制处理所有场景：
+
+| 场景 | 触发压缩的时机 |
+|------|--------------|
+| Agent 产出传递给下游 agent | Master 编排 sub-agent 时 |
+| Tool 返回超长结果 | tool call 结果写入对话历史时 |
+| RAG 召回大量文档 | context 拼装时 |
+
+**按需取回原文**：下游 agent 看到摘要后，如果需要完整数据（如精确字段访问），通过 `ctx.load_ref(ref_id)` 取回原文。取回的原文不进对话历史，只在当次 LLM 调用中临时注入。
+
+**阈值配置**：
+
+```yaml
+# config.yaml
+context:
+  compression_threshold: 2000   # tokens，超过此值触发 summarize + ref
+```
+
+### 3.4 历史压缩
 
 长对话超出 budget 时：
 
