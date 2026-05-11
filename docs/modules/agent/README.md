@@ -44,9 +44,9 @@ Agent 是 Sigma 的"执行单元扩展点"。区别于 Tool（行为）和 Skill
 ```
 
 **Master vs Supervisor**：
-- Master：跟用户对话、整合结果（"前台"）
+- Master：跟用户对话、整合结果、L2 代答、编排子 agent（"前台"）
 - Supervisor：决定派给谁的专门节点（"调度员"）
-- 两者可能同 LLM 调用合并（简单场景）也可能拆开（复杂场景）。是 Phase 1 后期需要 benchmark 决定的事（U-2）。
+- **设计上独立模块，实现上 V1 合并**：代码分模块（独立 prompt / 独立优化空间），但 V1 运行时可能合并为一次 LLM 调用。真需要拆开时（比如 Supervisor prompt 需要独立调优），只改编排不改接口。
 
 ---
 
