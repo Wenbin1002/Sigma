@@ -4,6 +4,31 @@
 
 ---
 
+## 数据传递
+
+Agent 之间不需要专门的数据传递机制——这是 **Context 模块的 token 管理策略**统一处理的。
+
+**规则**：任何内容（agent 产出 / tool 返回 / RAG 召回）进入后续 context 前，由 Context Engine 按 token 阈值自动判断：
+
+```
+token_count(content) <= threshold?
+    YES → 直接放入下游 agent 的 context
+    NO  → summarize + 存原文（ref），下游看摘要，按需 load 原文
+```
+
+**对写 agent 的人来说**：正常产出内容即可，不需要关心"下游怎么拿到我的数据"。框架自动处理压缩/传递。
+
+**下游 agent 需要完整数据时**：通过 `ctx.load_ref(ref_id)` 取回原文。
+
+这套机制同时解决了：
+- Agent 之间传结构化数据（researcher → analyst）
+- Tool 返回超长结果（一次 API 返回 10000 行 JSON）
+- 长链协作的 context 膨胀问题
+
+详见 [Context 模块 § 内容压缩策略](../context/README.md#33-内容压缩策略)。
+
+---
+
 ## 串行
 
 Master agent 按顺序 spawn sub-agent：
