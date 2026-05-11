@@ -1,8 +1,6 @@
 # Sigma
 
 > 通用 personal AI assistant — 对标 ChatGPT + Codex 集成体的本地版本。
->
-> 学习项目，不追求生产级性能；架构透明，每个设计决策都有 [演化记录](docs/architecture/design-log.md)。
 
 ## 是什么
 
@@ -56,7 +54,7 @@ Sigma Core Server
 
 ## Multi-agent 设计
 
-**双入口路由**（详见 [Multi-agent](docs/architecture/multi-agent.md)）：
+**双入口路由**（详见 [Multi-agent](docs/features/multi-agent.md)）：
 - Supervisor 自动判断意图，派给 sub-agent
 - 用户也可 `@agent_name` 显式召唤
 
@@ -141,11 +139,13 @@ cost_guard:
 | 主题 | 链接 |
 |------|------|
 | 架构总览 | [docs/architecture/overview.md](docs/architecture/overview.md) |
-| Chat / Task 模式 | [docs/architecture/chat-task-modes.md](docs/architecture/chat-task-modes.md) |
-| Realtime 模式 | [docs/architecture/realtime-mode.md](docs/architecture/realtime-mode.md) |
-| Multi-agent | [docs/architecture/multi-agent.md](docs/architecture/multi-agent.md) |
-| Self-improvement | [docs/architecture/self-improvement.md](docs/architecture/self-improvement.md) |
+| 依赖规则 | [docs/architecture/dependency-rules.md](docs/architecture/dependency-rules.md) |
+| Ports & Adapters | [docs/architecture/ports-and-adapters.md](docs/architecture/ports-and-adapters.md) |
 | 设计决策日志 | [docs/architecture/design-log.md](docs/architecture/design-log.md) |
+| Chat / Task 模式 | [docs/features/chat-task-modes.md](docs/features/chat-task-modes.md) |
+| Realtime 模式 | [docs/features/realtime-mode.md](docs/features/realtime-mode.md) |
+| Multi-agent | [docs/features/multi-agent.md](docs/features/multi-agent.md) |
+| Self-improvement | [docs/features/self-improvement.md](docs/features/self-improvement.md) |
 | 贡献指南 | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | 路线图 | [docs/roadmap.md](docs/roadmap.md) |
 
