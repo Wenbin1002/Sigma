@@ -158,7 +158,7 @@ Server
 - **Skill** — 知识扩展（怎么做）
 - **Agent** — 执行单元扩展（谁来做）
 
-**Multi-agent 三级回退**（详见 [Multi-agent](docs/architecture/multi-agent.md)）：
+**Multi-agent 三级回退**（详见 [Multi-agent](docs/features/multi-agent.md)）：
 1. Sub-agent 自决
 2. Sub-agent → 主 agent 代答
 3. 主 agent → 用户（chat 追问 / task pause）
@@ -169,10 +169,10 @@ Server
 |------|------|
 | 文档导航 | [docs/index.md](docs/index.md) |
 | 架构总览 | [docs/architecture/overview.md](docs/architecture/overview.md) |
-| Chat / Task 模式 | [docs/architecture/chat-task-modes.md](docs/architecture/chat-task-modes.md) |
-| Realtime 模式 | [docs/architecture/realtime-mode.md](docs/architecture/realtime-mode.md) |
-| Multi-agent | [docs/architecture/multi-agent.md](docs/architecture/multi-agent.md) |
-| Self-improvement | [docs/architecture/self-improvement.md](docs/architecture/self-improvement.md) |
+| Chat / Task 模式 | [docs/features/chat-task-modes.md](docs/features/chat-task-modes.md) |
+| Realtime 模式 | [docs/features/realtime-mode.md](docs/features/realtime-mode.md) |
+| Multi-agent | [docs/features/multi-agent.md](docs/features/multi-agent.md) |
+| Self-improvement | [docs/features/self-improvement.md](docs/features/self-improvement.md) |
 | Ports & Adapters | [docs/architecture/ports-and-adapters.md](docs/architecture/ports-and-adapters.md) |
 | 依赖规则 | [docs/architecture/dependency-rules.md](docs/architecture/dependency-rules.md) |
 | 设计决策日志 | [docs/architecture/design-log.md](docs/architecture/design-log.md) |

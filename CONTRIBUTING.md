@@ -111,7 +111,7 @@ class YourAgent(sigma.Agent):
         ...
 ```
 
-详见 [Multi-agent](docs/architecture/multi-agent.md) 和 [Agent 模块](docs/modules/agent/)。
+详见 [Multi-agent](docs/features/multi-agent.md) 和 [Agent 模块](docs/modules/agent/)。
 
 ### 高门槛：内核改进
 
