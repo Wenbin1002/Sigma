@@ -14,6 +14,7 @@ This skill exists to keep the git history clean, reviewable, and easy to navigat
 
 - **Commit messages in English** — the git log is a shared artifact; English keeps it consistent and plays well with CLI tools, GitHub search, and automation that parses conventional commits.
 - **No Co-Authored-By or Signed-off-by** — this project doesn't use DCO or co-author tracking; adding them creates noise in the log.
+- **No AI attribution in PR body** — don't add "Generated with Claude Code" or similar footers; the PR should look like any human-written PR.
 - **Scopes come from the reference table only** — inventing ad-hoc scopes (like `architecture` or `docs` as a scope) fragments the log and makes filtering unreliable.
 - **Always fetch before branching** — the local `main` can be days behind `origin/main`; branching from a stale base guarantees merge conflicts later.
 
