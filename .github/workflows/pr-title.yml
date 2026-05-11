@@ -1,0 +1,29 @@
+name: PR Title Lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  lint-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # type(scope): subject
+          # Types: feat|fix|refactor|test|docs|chore|perf|style
+          # Scopes: voice|agent|rag|memory|tools|trace|core|ports|runtime|context|app|deps|config|project
+          PATTERN='^(feat|fix|refactor|test|docs|chore|perf|style)\((voice|agent|rag|memory|tools|trace|core|ports|runtime|context|app|deps|config|project)\): .{1,50}$'
+
+          if [[ ! "$PR_TITLE" =~ $PATTERN ]]; then
+            echo "::error::PR title does not match format: <type>(<scope>): <subject>"
+            echo ""
+            echo "Got: $PR_TITLE"
+            echo ""
+            echo "Expected pattern: type(scope): subject (max 50 chars in subject)"
+            echo "Types: feat|fix|refactor|test|docs|chore|perf|style"
+            echo "Scopes: voice|agent|rag|memory|tools|trace|core|ports|runtime|context|app|deps|config|project"
+            exit 1
+          fi
