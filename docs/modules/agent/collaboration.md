@@ -115,3 +115,67 @@ async def run(self, task: str, ctx: Context):
 | **成本传递** | Sub-agent 的 LLM 调用计入 parent task 总预算 |
 | **取消传播** | 取消 parent 时自动 cancel 所有子 agent |
 | **Timeout** | spawn 时可声明 timeout，到时强制 cancel |
+
+---
+
+## 外部 CLI Agent 委托（预留接口）
+
+> **定位：逃生舱，不是主路径。** 核心场景必须自研——外包执行层会导致 Sigma 的横切能力（trace / cost / memory / checkpoint）全部失效，产品没有壁垒。此模式仅用于"确实不值得自己做"的边缘场景。
+
+Sigma 可以将特定场景委托给外部 CLI agent 执行，而非自己做 reasoning。
+
+### 执行模型
+
+```
+Sigma Master（before）:
+  - 从 memory/context 组装偏好、规范、相关上下文
+  - 注入到 prompt 中
+         ↓
+外部 CLI agent（黑盒执行）:
+  - 子进程执行，Sigma 不干预过程
+  - 内部自己 reason、调 tool
+         ↓
+Sigma Master（after）:
+  - 收结果，沉淀到 memory/trace
+  - 汇报用户
+```
+
+### 在架构里的位置
+
+外部 CLI agent 就是一个普通的 sub-agent adapter，满足 Agent Protocol：
+
+```python
+class ExternalCLIAgent(Agent):
+    name = "external-cli"
+    description = "委托给外部 CLI agent 执行"
+    triggers = [...]
+    tools = []  # 外部 agent 自带 tool，Sigma 不管
+
+    async def run(self, task: str, ctx: Context):
+        # before: 注入 context
+        prompt = f"{ctx.preferences}\n\n{task}"
+        
+        # 执行: 子进程，流式读 stdout
+        process = await asyncio.create_subprocess_exec(
+            "some-cli", "-p", prompt,
+            stdout=asyncio.subprocess.PIPE
+        )
+        async for line in process.stdout:
+            yield AgentChunk(text=line.decode())
+```
+
+### 为什么不用于核心场景
+
+| 问题 | 说明 |
+|------|------|
+| 横切能力失效 | Trace 只记一次调用；Cost 黑盒；Checkpoint 无法恢复 |
+| 体验割裂 | 两套行为风格/输出格式缝合 |
+| 依赖风险 | 外部产品接口变动 → 核心场景挂 |
+| 学不到核心难点 | 跳过了最有价值的 agent 设计挑战 |
+
+### 适用边界
+
+仅当同时满足以下条件时考虑：
+- 场景是非核心/低频的
+- 自研 ROI 极低（比如适配某个非常 niche 的 CLI 工具）
+- 不需要 Sigma 的横切能力介入执行过程
