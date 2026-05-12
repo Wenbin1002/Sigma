@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sigma Roadmap — V1</title>
+<style>
+:root {
+  --ivory: #FAF9F5;
+  --paper: #FFFFFF;
+  --slate: #141413;
+  --clay: #D97757;
+  --clay-d: #B85C3E;
+  --oat: #E3DACC;
+  --olive: #788C5D;
+  --olive-l: #e8edd9;
+  --g100: #F0EEE6;
+  --g200: #E6E3DA;
+  --g300: #D1CFC5;
+  --g500: #87867F;
+  --g700: #3D3D3A;
+  --rust: #B04A3F;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --border: 1.5px solid var(--g300);
+  --transition: 150ms ease;
+  --serif: ui-serif, Georgia, "Noto Serif SC", "Source Han Serif SC", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--ivory);
+  color: var(--slate);
+  font-family: var(--sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ── */
+.hero {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 56px 24px 24px;
+}
+.hero .eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--clay);
+  margin-bottom: 12px;
+}
+.hero h1 {
+  font-family: var(--serif);
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--slate);
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+.hero .subtitle {
+  font-size: 17px;
+  color: var(--g500);
+  line-height: 1.6;
+  max-width: 620px;
+}
+.hero .subtitle strong { color: var(--g700); }
+.tag-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--g100);
+  color: var(--g700);
+  border: 1px solid var(--g200);
+}
+.tag.active {
+  background: var(--clay);
+  color: white;
+  border-color: var(--clay);
+}
+
+/* ── Main container ── */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+/* ── Timeline visual ── */
+.timeline-section {
+  margin: 36px 0 48px;
+}
+.timeline-track {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+.timeline-line {
+  position: absolute;
+  top: 17px;
+  left: 40px;
+  right: 40px;
+  height: 3px;
+  background: var(--g200);
+  z-index: 0;
+}
+.timeline-line-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--clay), var(--olive));
+  border-radius: 2px;
+  transition: width 600ms ease;
+}
+.tl-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  width: 100px;
+  transition: transform var(--transition);
+}
+.tl-node:hover { transform: translateY(-2px); }
+.tl-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 3px solid var(--g300);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--g500);
+  transition: all 250ms ease;
+  margin-bottom: 10px;
+}
+.tl-node.current .tl-dot {
+  border-color: var(--clay);
+  background: var(--clay);
+  color: white;
+  box-shadow: 0 0 0 5px rgba(217,119,87,0.18);
+}
+.tl-node.done .tl-dot {
+  border-color: var(--olive);
+  background: var(--olive);
+  color: white;
+}
+.tl-node.active .tl-dot {
+  border-color: var(--clay);
+  box-shadow: 0 0 0 5px rgba(217,119,87,0.15);
+}
+.tl-node.v1 .tl-dot {
+  width: 40px;
+  height: 40px;
+  font-size: 13px;
+  border-color: var(--slate);
+  color: var(--slate);
+  font-weight: 800;
+}
+.tl-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--g500);
+  text-align: center;
+  line-height: 1.3;
+  max-width: 88px;
+}
+.tl-node.current .tl-label,
+.tl-node.active .tl-label { color: var(--clay-d); font-weight: 600; }
+
+/* ── Scenario bar ── */
+.scenarios-bar {
+  margin: 0 0 40px;
+}
+.scenarios-bar h3 {
+  font-family: var(--serif);
+  font-size: 18px;
+  color: var(--slate);
+  margin-bottom: 14px;
+}
+.scene-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.scene-card {
+  background: var(--paper);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.scene-card:hover {
+  border-color: var(--clay);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.scene-card.highlight {
+  border-color: var(--clay);
+  background: #fef8f5;
+}
+.scene-num {
+  font-family: var(--serif);
+  font-size: 28px;
+  color: var(--g200);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.scene-card.highlight .scene-num { color: rgba(217,119,87,0.25); }
+.scene-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+.scene-mode {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--g500);
+}
+.scene-unlock {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--clay);
+  margin-top: 6px;
+}
+
+/* ── Milestone detail cards ── */
+.milestone-card {
+  background: var(--paper);
+  border: var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+.milestone-card.expanded {
+  border-color: var(--clay);
+}
+.ms-header {
+  display: flex;
+  align-items: center;
+  padding: 20px 24px;
+  cursor: pointer;
+  user-select: none;
+  gap: 16px;
+  transition: background var(--transition);
+}
+.ms-header:hover {
+  background: var(--g100);
+}
+.ms-version {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--paper);
+  background: var(--g500);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.milestone-card.current .ms-version {
+  background: var(--clay);
+}
+.ms-info { flex: 1; min-width: 0; }
+.ms-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--slate);
+  line-height: 1.3;
+}
+.ms-modules {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--g500);
+  margin-top: 2px;
+}
+.ms-badges {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: center;
+}
+.ms-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.ms-badge.scene {
+  background: var(--olive-l);
+  color: var(--olive);
+}
+.ms-badge.infra {
+  background: var(--g100);
+  color: var(--g500);
+}
+.ms-badge.current-tag {
+  background: var(--clay);
+  color: white;
+}
+.ms-chevron {
+  width: 20px;
+  height: 20px;
+  color: var(--g500);
+  flex-shrink: 0;
+  transition: transform 250ms ease;
+}
+.milestone-card.expanded .ms-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Milestone body ── */
+.ms-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 400ms ease;
+}
+.ms-body-inner {
+  padding: 0 24px 24px;
+  border-top: 1px solid var(--g200);
+}
+.ms-goal {
+  font-size: 15px;
+  color: var(--g700);
+  padding: 16px 0 20px;
+  line-height: 1.6;
+}
+.ms-goal strong { color: var(--slate); }
+
+.ms-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.ms-col h4 {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--clay);
+  margin-bottom: 10px;
+}
+.ms-col.not h4 {
+  color: var(--g500);
+}
+.ms-col ul {
+  list-style: none;
+  padding: 0;
+}
+.ms-col ul li {
+  font-size: 13.5px;
+  color: var(--g700);
+  padding: 5px 0;
+  padding-left: 18px;
+  position: relative;
+  line-height: 1.5;
+}
+.ms-col ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--olive);
+}
+.ms-col.not ul li::before {
+  background: var(--g300);
+}
+.ms-col ul li code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--g100);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--clay-d);
+}
+
+/* ── Exit criteria ── */
+.ms-criteria {
+  margin-top: 20px;
+  background: var(--g100);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+}
+.ms-criteria h4 {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--slate);
+  margin-bottom: 10px;
+}
+.criteria-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--g700);
+  line-height: 1.5;
+}
+.criteria-check {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--g300);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.criteria-item code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--paper);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--clay-d);
+}
+
+/* ── V1 summary ── */
+.v1-summary {
+  background: var(--paper);
+  border: 2px solid var(--slate);
+  border-radius: var(--radius);
+  padding: 32px;
+  margin: 40px 0;
+}
+.v1-summary .eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--clay);
+  margin-bottom: 8px;
+}
+.v1-summary h2 {
+  font-family: var(--serif);
+  font-size: 28px;
+  color: var(--slate);
+  margin-bottom: 20px;
+}
+.v1-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.v1-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--g700);
+  padding: 6px 0;
+}
+.v1-check {
+  color: var(--olive);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+/* ── V2+ ── */
+.v2-section {
+  margin: 40px 0;
+}
+.v2-section h2 {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--slate);
+  margin-bottom: 16px;
+}
+.v2-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.v2-card {
+  background: var(--paper);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  border-left: 3px solid var(--g300);
+}
+.v2-card .v2-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--slate);
+  margin-bottom: 4px;
+}
+.v2-card .v2-desc {
+  font-size: 12.5px;
+  color: var(--g500);
+  line-height: 1.5;
+}
+
+/* ── Experiments ── */
+.experiments {
+  margin: 40px 0;
+}
+.experiments h2 {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--slate);
+  margin-bottom: 16px;
+}
+.exp-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.exp-pill {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--g100);
+  color: var(--g700);
+  border: 1px solid var(--g200);
+}
+
+/* ── Principles ── */
+.principles {
+  margin: 40px 0;
+}
+.principles h2 {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--slate);
+  margin-bottom: 16px;
+}
+.principle-list {
+  display: grid;
+  gap: 10px;
+}
+.principle {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 12px 16px;
+  background: var(--paper);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.principle-num {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--g200);
+  flex-shrink: 0;
+  line-height: 1;
+}
+.principle-text {
+  font-size: 14px;
+  color: var(--g700);
+  line-height: 1.5;
+}
+.principle-text strong { color: var(--slate); }
+
+/* ── Footer ── */
+.footer {
+  text-align: center;
+  padding: 40px 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--g500);
+  border-top: 1px solid var(--g200);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 30px; }
+  .scene-grid { grid-template-columns: repeat(2, 1fr); }
+  .ms-columns { grid-template-columns: 1fr; }
+  .v1-grid { grid-template-columns: repeat(2, 1fr); }
+  .v2-grid { grid-template-columns: 1fr; }
+  .ms-badges { display: none; }
+  .timeline-track { gap: 4px; overflow-x: auto; padding-bottom: 8px; }
+  .tl-node { width: 72px; }
+  .tl-label { font-size: 9px; max-width: 68px; }
+}
+@media (max-width: 480px) {
+  .scene-grid { grid-template-columns: 1fr; }
+  .v1-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════ HERO ════════ -->
+<header class="hero">
+  <div class="eyebrow">Sigma · 项目路线图</div>
+  <h1>Road to V1</h1>
+  <p class="subtitle"><strong>V1 是唯一的完整交付目标。</strong>0.1 → 0.6 是到达 V1 的六个里程碑，每个可独立 demo / 独立测试。CLI only — Web UI 和 Realtime 语音放 V2+。</p>
+  <div class="tag-row">
+    <span class="tag active">🚧 当前：0.1</span>
+    <span class="tag">Python</span>
+    <span class="tag">LangGraph</span>
+    <span class="tag">CLI Only</span>
+  </div>
+</header>
+
+<main class="container">
+
+<!-- ════════ TIMELINE ════════ -->
+<section class="timeline-section">
+  <div class="timeline-track">
+    <div class="timeline-line"><div class="timeline-line-fill" id="tl-fill"></div></div>
+    <div class="tl-node current" data-ms="0" onclick="scrollToMs(0)">
+      <div class="tl-dot">0.1</div>
+      <div class="tl-label">骨架<br>单 Agent</div>
+    </div>
+    <div class="tl-node" data-ms="1" onclick="scrollToMs(1)">
+      <div class="tl-dot">0.2</div>
+      <div class="tl-label">Task<br>引擎</div>
+    </div>
+    <div class="tl-node" data-ms="2" onclick="scrollToMs(2)">
+      <div class="tl-dot">0.3</div>
+      <div class="tl-label">Memory<br>Context</div>
+    </div>
+    <div class="tl-node" data-ms="3" onclick="scrollToMs(3)">
+      <div class="tl-dot">0.4</div>
+      <div class="tl-label">RAG<br>讨论书</div>
+    </div>
+    <div class="tl-node" data-ms="4" onclick="scrollToMs(4)">
+      <div class="tl-dot">0.5</div>
+      <div class="tl-label">Multi-Agent<br>Skill</div>
+    </div>
+    <div class="tl-node" data-ms="5" onclick="scrollToMs(5)">
+      <div class="tl-dot">0.6</div>
+      <div class="tl-label">周期 Task<br>推送</div>
+    </div>
+    <div class="tl-node v1" onclick="scrollToV1()">
+      <div class="tl-dot">V1</div>
+      <div class="tl-label">完整交付</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SCENARIOS ════════ -->
+<section class="scenarios-bar">
+  <h3>4 个核心场景</h3>
+  <div class="scene-grid">
+    <div class="scene-card" data-scene="1" id="scene-1">
+      <div class="scene-num">1</div>
+      <div class="scene-title">社媒内容筛选推送</div>
+      <div class="scene-mode">task（周期性）</div>
+      <div class="scene-unlock">解锁于 0.6</div>
+    </div>
+    <div class="scene-card" data-scene="2" id="scene-2">
+      <div class="scene-num">2</div>
+      <div class="scene-title">生猪期货数据分析</div>
+      <div class="scene-mode">task（一次性）</div>
+      <div class="scene-unlock">解锁于 0.5</div>
+    </div>
+    <div class="scene-card" data-scene="3" id="scene-3">
+      <div class="scene-num">3</div>
+      <div class="scene-title">多轮讨论书 + 总结</div>
+      <div class="scene-mode">chat</div>
+      <div class="scene-unlock">解锁于 0.4</div>
+    </div>
+    <div class="scene-card" data-scene="4" id="scene-4">
+      <div class="scene-num">4</div>
+      <div class="scene-title">Coding</div>
+      <div class="scene-mode">chat + task</div>
+      <div class="scene-unlock">解锁于 0.5</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ MILESTONES ════════ -->
+<section id="milestones">
+
+  <!-- 0.1 -->
+  <div class="milestone-card current expanded" id="ms-0">
+    <div class="ms-header" onclick="toggleMs(this)">
+      <div class="ms-version">0.1</div>
+      <div class="ms-info">
+        <div class="ms-title">骨架 + 单 Agent 对话</div>
+        <div class="ms-modules">Agent · LLM · Tool · Trace · Chat · Server · CLI</div>
+      </div>
+      <div class="ms-badges">
+        <span class="ms-badge current-tag">当前阶段</span>
+        <span class="ms-badge infra">基建</span>
+      </div>
+      <svg class="ms-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+    </div>
+    <div class="ms-body">
+      <div class="ms-body-inner">
+        <div class="ms-goal"><strong>目标：</strong>跑通最基础的 chat，验证内核选型。</div>
+        <div class="ms-columns">
+          <div class="ms-col">
+            <h4>做什么</h4>
+            <ul>
+              <li><code>src/</code> 项目骨架</li>
+              <li>LangGraph 内核（Master Agent 单节点 graph）</li>
+              <li>LLMPort + 1 个 adapter（OpenAI 或 DeepSeek）</li>
+              <li>ToolPort + 内置 tool（read_file / write_file / shell）</li>
+              <li>TracerPort + JSONLTracer</li>
+              <li>CheckpointerPort + LangGraph SqliteSaver</li>
+              <li>Server（HTTP/SSE）最简 chat API</li>
+              <li>CLI：<code>sigma chat</code></li>
+            </ul>
+          </div>
+          <div class="ms-col not">
+            <h4>不做</h4>
+            <ul>
+              <li>Task 系统</li>
+              <li>Skill 系统</li>
+              <li>Sub-agent</li>
+              <li>RAG / Memory</li>
+              <li>多 provider 路由</li>
+            </ul>
+          </div>
+        </div>
+        <div class="ms-criteria">
+          <h4>退出标准</h4>
+          <div class="criteria-item"><div class="criteria-check"></div><code>sigma chat</code> 能跟 LLM 多轮对话</div>
+          <div class="criteria-item"><div class="criteria-check"></div>工具调用流跑通（agent 调 read_file 读文件回答）</div>
+          <div class="criteria-item"><div class="criteria-check"></div>Trace JSONL 文件能看到每次 LLM 调用 / tool call</div>
+          <div class="criteria-item"><div class="criteria-check"></div>中断恢复：kill 进程后 <code>sigma chat --resume &lt;session&gt;</code> 能续上</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0.2 -->
+  <div class="milestone-card" id="ms-1">
+    <div class="ms-header" onclick="toggleMs(this)">
+      <div class="ms-version">0.2</div>
+      <div class="ms-info">
+        <div class="ms-title">Task 引擎</div>
+        <div class="ms-modules">Task · Chat↔Task</div>
+      </div>
+      <div class="ms-badges">
+        <span class="ms-badge infra">基建</span>
+      </div>
+      <svg class="ms-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+    </div>
+    <div class="ms-body">
+      <div class="ms-body-inner">
+        <div class="ms-goal"><strong>目标：</strong>Chat / Task 双视图跑通，Task 基建完整可用。</div>
+        <div class="ms-columns">
+          <div class="ms-col">
+            <h4>做什么</h4>
+            <ul>
+              <li>Task Engine：状态机（queued → running → completed / paused / failed / cancelled）</li>
+              <li>Task queue + SQLite 持久化</li>
+              <li>Pause/resume 机制（LangGraph interrupt + <code>Command(resume=...)</code>）</li>
+              <li>Chat ↔ Task 打通：升级建议 + 完成回流</li>
+              <li>CLI：<code>sigma task new / list / view / pause / resume / cancel</code></li>
+            </ul>
+          </div>
+          <div class="ms-col not">
+            <h4>不做</h4>
+            <ul>
+              <li>周期性 task（cron）</li>
+              <li>Multi-agent</li>
+              <li>RAG / Memory</li>
+              <li>Coding agent</li>
+            </ul>
+          </div>
+        </div>
+        <div class="ms-criteria">
+          <h4>退出标准</h4>
+          <div class="criteria-item"><div class="criteria-check"></div><code>sigma task new "帮我总结这篇文章"</code> 能后台跑 task</div>
+          <div class="criteria-item"><div class="criteria-check"></div>Task 卡住能进 paused，<code>sigma task resume</code> 能续</div>
+          <div class="criteria-item"><div class="criteria-check"></div>Chat 中建议升级 task，task 完成后回流通知</div>
+          <div class="criteria-item"><div class="criteria-check"></div>Trace 里能完整看到 task 执行（含 pause / resume）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0.3 -->
+  <div class="milestone-card" id="ms-2">
+    <div class="ms-header" onclick="toggleMs(this)">
+      <div class="ms-version">0.3</div>
+      <div class="ms-info">
+        <div class="ms-title">Memory + Context + Self-Improvement MVP</div>
+        <div class="ms-modules">Memory · Context · Improvement</div>
+      </div>
+      <div class="ms-badges">
+        <span class="ms-badge infra">基建</span>
+      </div>
+      <svg class="ms-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+    </div>
+    <div class="ms-body">
+      <div class="ms-body-inner">
+        <div class="ms-goal"><strong>目标：</strong>让 Sigma 有记忆、会记偏好——"越用越懂你"的起点。</div>
+        <div class="ms-columns">
+          <div class="ms-col">
+            <h4>做什么</h4>
+            <ul>
+              <li>Memory 三层存储：global / session / task</li>
+              <li>Memory CLI：<code>sigma memory list / edit / delete</code></li>
+              <li>Context Engine：多源拼装 + token budget 管理</li>
+              <li>Self-improvement MVP：显式偏好提取 → memory 写入 → 下次生效</li>
+              <li>用户可查看 / 编辑 / 删除 memory 条目</li>
+            </ul>
+          </div>
+          <div class="ms-col not">
+            <h4>不做</h4>
+            <ul>
+              <li>RAG</li>
+              <li>隐式信号提取（V2+）</li>
+              <li>Audio metadata</li>
+            </ul>
+          </div>
+        </div>
+        <div class="ms-criteria">
+          <h4>退出标准</h4>
+          <div class="criteria-item"><div class="criteria-check"></div>用户说"以后回答用中文"，下次新 session 自动用中文</div>
+          <div class="criteria-item"><div class="criteria-check"></div><code>sigma memory list</code> 能看到提取的偏好，可编辑</div>
+          <div class="criteria-item"><div class="criteria-check"></div>隔天开新 session 还记得偏好</div>
+          <div class="criteria-item"><div class="criteria-check"></div>长对话（50+ 轮）context 压缩正常，不崩不截断</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0.4 -->
+  <div class="milestone-card" id="ms-3">
+    <div class="ms-header" onclick="toggleMs(this)">
+      <div class="ms-version">0.4</div>
+      <div class="ms-info">
+        <div class="ms-title">RAG + 讨论书场景</div>
+        <div class="ms-modules">RAG · Context 增强</div>
+      </div>
+      <div class="ms-badges">
+        <span class="ms-badge scene">场景 3 ✓</span>
+      </div>
+      <svg class="ms-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+    </div>
+    <div class="ms-body">
+      <div class="ms-body-inner">
+        <div class="ms-goal"><strong>目标：</strong>Sigma 能基于外部文档回答问题，场景 3（讨论书）端到端跑通。</div>
+        <div class="ms-columns">
+          <div class="ms-col">
+            <h4>做什么</h4>
+            <ul>
+              <li>RAG 多 index 管理（每个 index 独立）</li>
+              <li>Indexing pipeline：parse → chunk → embed → store</li>
+              <li>至少 1 个 vector store（Qdrant / Chroma / LanceDB）</li>
+              <li>检索带引用（章节 / 页码）</li>
+              <li>Context Engine 增强：RAG 结果参与 token budget</li>
+              <li>CLI：<code>sigma rag create / index / search / list / delete</code></li>
+              <li>场景 3 端到端跑通</li>
+            </ul>
+          </div>
+          <div class="ms-col not">
+            <h4>不做</h4>
+            <ul>
+              <li>Multi-agent（单 agent + RAG tool 即可）</li>
+              <li>代码库索引优化</li>
+            </ul>
+          </div>
+        </div>
+        <div class="ms-criteria">
+          <h4>退出标准</h4>
+          <div class="criteria-item"><div class="criteria-check"></div>上传一本书 → 基于内容多轮问答，回答带引用</div>
+          <div class="criteria-item"><div class="criteria-check"></div>讨论 50 轮后总结笔记，质量可用</div>
+          <div class="criteria-item"><div class="criteria-check"></div>多个 index 共存互不干扰</div>
+          <div class="criteria-item"><div class="criteria-check"></div>RAG 检索结果正确参与 token budget 分配</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0.5 -->
+  <div class="milestone-card" id="ms-4">
+    <div class="ms-header" onclick="toggleMs(this)">
+      <div class="ms-version">0.5</div>
+      <div class="ms-info">
+        <div class="ms-title">Multi-Agent + Skill + Coding + 数据分析</div>
+        <div class="ms-modules">Agent(multi) · Skill · LLM(multi-provider)</div>
+      </div>
+      <div class="ms-badges">
+        <span class="ms-badge scene">场景 2 ✓</span>
+        <span class="ms-badge scene">场景 4 ✓</span>
+      </div>
+      <svg class="ms-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+    </div>
+    <div class="ms-body">
+      <div class="ms-body-inner">
+        <div class="ms-goal"><strong>目标：</strong>扩展模型完整落地（Tool / Skill / Agent 三层正交），场景 2 + 场景 4 端到端跑通。</div>
+        <div class="ms-columns">
+          <div class="ms-col">
+            <h4>做什么</h4>
+            <ul>
+              <li>Master Agent + Supervisor 路由</li>
+              <li>@-mention 显式召唤</li>
+              <li>Sub-agent 三级回退 + BlockedException</li>
+              <li>内置 sub-agent：researcher / coder / analyst</li>
+              <li>Coder agent：文件操作、代码执行、错误修复</li>
+              <li>Skill 系统：渐进式加载</li>
+              <li>至少 5+ 内置 skill</li>
+              <li>LLM 多 provider + cost-aware 路由</li>
+              <li>用户扩展点：<code>~/.sigma/agents/</code> + <code>~/.sigma/skills/</code></li>
+            </ul>
+          </div>
+          <div class="ms-col not">
+            <h4>不做</h4>
+            <ul>
+              <li>周期性 task（cron）</li>
+              <li>推送通道</li>
+              <li>Realtime</li>
+            </ul>
+          </div>
+        </div>
+        <div class="ms-criteria">
+          <h4>退出标准</h4>
+          <div class="criteria-item"><div class="criteria-check"></div>Supervisor 自动路由到正确的 sub-agent</div>
+          <div class="criteria-item"><div class="criteria-check"></div><code>@researcher</code> / <code>@coder</code> 显式召唤可用</div>
+          <div class="criteria-item"><div class="criteria-check"></div>三级回退完整工作（trace 可审计）</div>
+          <div class="criteria-item"><div class="criteria-check"></div>用户写的 skill / agent 能被发现和加载</div>
+          <div class="criteria-item"><div class="criteria-check"></div>场景 2：期货数据分析端到端跑通（含趋势图）</div>
+          <div class="criteria-item"><div class="criteria-check"></div>场景 4：coding 端到端跑通</div>
+          <div class="criteria-item"><div class="criteria-check"></div>Cost-aware 路由生效</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0.6 -->
+  <div class="milestone-card" id="ms-5">
+    <div class="ms-header" onclick="toggleMs(this)">
+      <div class="ms-version">0.6</div>
+      <div class="ms-info">
+        <div class="ms-title">周期 Task + 推送 + 社媒场景</div>
+        <div class="ms-modules">Task(cron) · 推送 · Trace viewer</div>
+      </div>
+      <div class="ms-badges">
+        <span class="ms-badge scene">场景 1 ✓</span>
+      </div>
+      <svg class="ms-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+    </div>
+    <div class="ms-body">
+      <div class="ms-body-inner">
+        <div class="ms-goal"><strong>目标：</strong>最后一个核心场景落地，V1 完整交付。</div>
+        <div class="ms-columns">
+          <div class="ms-col">
+            <h4>做什么</h4>
+            <ul>
+              <li>周期性 task 调度（cron / 自然语言周期）</li>
+              <li>推送通道（邮件 / 桌面通知 / webhook）</li>
+              <li>社媒数据源 tool：小红书 / X / 知乎</li>
+              <li>CLI：<code>sigma task schedule</code></li>
+              <li>场景 1 端到端跑通</li>
+              <li>Trace HTML viewer 完整版</li>
+              <li>全量集成测试 + 4 场景回归</li>
+            </ul>
+          </div>
+          <div class="ms-col not">
+            <h4>不做</h4>
+            <ul>
+              <li>Web UI</li>
+              <li>Realtime</li>
+              <li>隐式 self-improvement</li>
+            </ul>
+          </div>
+        </div>
+        <div class="ms-criteria">
+          <h4>退出标准</h4>
+          <div class="criteria-item"><div class="criteria-check"></div><code>sigma task schedule "每天早上8点推送社媒摘要"</code> 自动执行</div>
+          <div class="criteria-item"><div class="criteria-check"></div>推送到邮件 / webhook 能收到</div>
+          <div class="criteria-item"><div class="criteria-check"></div>用户反馈能影响下次推送内容</div>
+          <div class="criteria-item"><div class="criteria-check"></div>Trace viewer HTML 可查看完整执行链路</div>
+          <div class="criteria-item"><div class="criteria-check"></div><strong>V1 退出标准：4 个核心场景全部端到端跑通</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ════════ V1 SUMMARY ════════ -->
+<section class="v1-summary" id="v1-summary">
+  <div class="eyebrow">完整交付</div>
+  <h2>V1 = 0.6 完成</h2>
+  <div class="v1-grid">
+    <div class="v1-item"><span class="v1-check">✓</span> Chat + Task 双模式</div>
+    <div class="v1-item"><span class="v1-check">✓</span> Tool / Skill / Agent 三层扩展</div>
+    <div class="v1-item"><span class="v1-check">✓</span> Multi-agent + 三级回退</div>
+    <div class="v1-item"><span class="v1-check">✓</span> Memory 三层 + 显式偏好</div>
+    <div class="v1-item"><span class="v1-check">✓</span> RAG 多 index + 引用</div>
+    <div class="v1-item"><span class="v1-check">✓</span> Context engineering</div>
+    <div class="v1-item"><span class="v1-check">✓</span> Trace 全链路可观测</div>
+    <div class="v1-item"><span class="v1-check">✓</span> Cost guard + 多 provider</div>
+    <div class="v1-item"><span class="v1-check">✓</span> 周期 task + 推送</div>
+    <div class="v1-item"><span class="v1-check">✓</span> CLI 全功能</div>
+    <div class="v1-item"><span class="v1-check">✓</span> 4 个核心场景全部跑通</div>
+  </div>
+</section>
+
+<!-- ════════ V2+ ════════ -->
+<section class="v2-section">
+  <h2>V2+（展望）</h2>
+  <div class="v2-grid">
+    <div class="v2-card">
+      <div class="v2-title">Realtime 模式</div>
+      <div class="v2-desc">第三种交互模式（实时语音），OpenAI Realtime / Gemini Live middleware</div>
+    </div>
+    <div class="v2-card">
+      <div class="v2-title">Web UI</div>
+      <div class="v2-desc">React / Svelte 前端，走同一套 HTTP/SSE/WebSocket API</div>
+    </div>
+    <div class="v2-card">
+      <div class="v2-title">隐式 Self-improvement</div>
+      <div class="v2-desc">行为模式信号 + audio metadata，自动学习用户偏好</div>
+    </div>
+    <div class="v2-card">
+      <div class="v2-title">Eval 框架</div>
+      <div class="v2-desc">Agent 行为质量评估，基于 Trace 数据</div>
+    </div>
+    <div class="v2-card">
+      <div class="v2-title">Trace viewer 增强</div>
+      <div class="v2-desc">Time-travel / replay / diff / 跨 session 对比</div>
+    </div>
+    <div class="v2-card">
+      <div class="v2-title">Agent / Skill 分发</div>
+      <div class="v2-desc">从 registry 下载别人的 agent / skill（含安全沙箱）</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ EXPERIMENTS ════════ -->
+<section class="experiments">
+  <h2>平行实验线</h2>
+  <div class="exp-list">
+    <span class="exp-pill">experiments/rag/</span>
+    <span class="exp-pill">experiments/memory/</span>
+    <span class="exp-pill">experiments/agent/</span>
+    <span class="exp-pill">experiments/trace-viewer/</span>
+    <span class="exp-pill">experiments/cost-routing/</span>
+  </div>
+</section>
+
+<!-- ════════ PRINCIPLES ════════ -->
+<section class="principles">
+  <h2>路线图原则</h2>
+  <div class="principle-list">
+    <div class="principle">
+      <div class="principle-num">1</div>
+      <div class="principle-text"><strong>跟着 4 个核心场景走</strong>——任何 milestone 如果不能让某个核心场景前进，就不做</div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">2</div>
+      <div class="principle-text"><strong>学习价值优先</strong>——选实现路径时优先选能学到东西的，不优先选最简的</div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">3</div>
+      <div class="principle-text"><strong>不预先做 Port</strong>——只在已有 ≥ 2 个真实需求时才做抽象</div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">4</div>
+      <div class="principle-text"><strong>小步走</strong>——每个 milestone 可独立 demo / 独立写博客复盘</div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">5</div>
+      <div class="principle-text"><strong>先跑通再打磨</strong>——每个场景先端到端跑通，再优化细节</div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  Sigma Roadmap · 最后更新 2026-05-12
+</footer>
+
+<script>
+// ── Toggle milestone expand/collapse ──
+function toggleMs(header) {
+  const card = header.closest('.milestone-card');
+  const body = card.querySelector('.ms-body');
+  const inner = card.querySelector('.ms-body-inner');
+  if (card.classList.contains('expanded')) {
+    card.classList.remove('expanded');
+    body.style.maxHeight = '0';
+  } else {
+    card.classList.add('expanded');
+    body.style.maxHeight = inner.scrollHeight + 'px';
+  }
+}
+
+// ── Init: open the first card ──
+document.addEventListener('DOMContentLoaded', () => {
+  const first = document.querySelector('.milestone-card.expanded');
+  if (first) {
+    const body = first.querySelector('.ms-body');
+    const inner = first.querySelector('.ms-body-inner');
+    body.style.maxHeight = inner.scrollHeight + 'px';
+  }
+  // Animate timeline fill
+  setTimeout(() => {
+    document.getElementById('tl-fill').style.width = '2%';
+  }, 300);
+});
+
+// ── Scroll to milestone ──
+function scrollToMs(index) {
+  const el = document.getElementById('ms-' + index);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Expand it
+  const body = el.querySelector('.ms-body');
+  const inner = el.querySelector('.ms-body-inner');
+  if (!el.classList.contains('expanded')) {
+    el.classList.add('expanded');
+    body.style.maxHeight = inner.scrollHeight + 'px';
+  }
+  // Highlight
+  el.style.borderColor = 'var(--clay)';
+  setTimeout(() => { el.style.borderColor = ''; }, 1500);
+  // Highlight matching scene cards
+  highlightScenes(index);
+}
+
+function scrollToV1() {
+  document.getElementById('v1-summary').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Scene card interaction ──
+const sceneToMs = { 1: 5, 2: 4, 3: 3, 4: 4 };
+document.querySelectorAll('.scene-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const scene = parseInt(card.dataset.scene);
+    const msIndex = sceneToMs[scene];
+    scrollToMs(msIndex);
+  });
+});
+
+// ── Highlight scenes for a milestone ──
+const msToScenes = { 0: [], 1: [], 2: [], 3: [3], 4: [2, 4], 5: [1] };
+function highlightScenes(msIndex) {
+  document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('highlight'));
+  (msToScenes[msIndex] || []).forEach(s => {
+    const el = document.getElementById('scene-' + s);
+    if (el) el.classList.add('highlight');
+  });
+}
+
+// ── Timeline node click highlights ──
+document.querySelectorAll('.tl-node:not(.v1)').forEach(node => {
+  node.addEventListener('click', () => {
+    document.querySelectorAll('.tl-node').forEach(n => n.classList.remove('active'));
+    node.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>

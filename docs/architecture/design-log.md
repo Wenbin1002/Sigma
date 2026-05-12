@@ -44,6 +44,10 @@
 | D-12 | **Sub-agent 沟通** | **三级回退** | 见下方详解 |
 | D-13 | **Realtime 模式** | **第三种顶层交互模式（V4 起）** | 半透明 middleware；不 multi-agent；与 Chat / Task 平级 |
 | D-14 | **Self-improvement 落地路径** | **V2 MVP（显式）→ V3 隐式 → V4 Realtime audio signal** | Realtime 是 self-improvement 反馈密度最高的场景，是天然落地点 |
+| D-15 | **技术选型** | **纯 Python 后端** | I/O 密集型项目（99% 时间等 LLM API），Python 的 CPU 慢不在关键路径上；LangGraph Python >> JS 版；AI 生态是 Python 主场 |
+| D-16 | **Roadmap 重构** | **V1 = 唯一完整交付目标，0.1→0.6 六个 milestone** | 旧 V0-V5 拆得太碎且不连续；新结构每个 milestone 独立可 demo，按场景解锁排序 |
+| D-17 | **V1 范围** | **Chat + Task 双模式，CLI only；Realtime + Web UI 推 V2+** | 聚焦内核能力，不铺交互形态 |
+| D-18 | **Self-improvement V1 范围** | **显式偏好 MVP only；隐式信号推 V2+** | 显式偏好工作量小、价值确定；隐式信号需要大量 heuristic，投入产出不确定 |
 
 ### D-12 详解：Sub-agent 三级回退
 
@@ -286,12 +290,14 @@ Realtime ：1 分钟 5-10 次 audio signal（打断 / 沉默 / 笑声）+ 文本
 
 ## 7. 下一步行动
 
-**已完成**（docs/restructure-v2）：
-1. ✅ 基于本文件重写所有 docs
+**已完成**：
+1. ✅ 基于本文件重写所有 docs（docs/restructure-v2）
+2. ✅ 技术选型确认：纯 Python 后端（D-15）
+3. ✅ Roadmap 重构为 0.1→0.6 milestone 结构（D-16）
 
 **接下来**：
-1. **继续 Q&A 推进未决问题**：U-1（task 状态机细节）→ U-5/U-6（RAG / Memory 落地） → U-2（Master vs Supervisor）
-2. **每个新决定记到 § 2**
-3. **每个关键洞察记到 § 4**
-4. **建 `src/` 骨架**（V0 阶段：Hello Agent 跑通）
-5. **不在 V0 之前过度设计**——先把骨架跑通，再撞墙再加东西
+1. **建 `src/` 骨架**（0.1 阶段：Hello Agent 跑通）
+2. **继续推进未决问题**：U-1 → U-5/U-6 → U-2（撞墙时再解决）
+3. **每个新决定记到 § 2**
+4. **每个关键洞察记到 § 4**
+5. **不在 0.1 之前过度设计**——先把骨架跑通，再撞墙再加东西
