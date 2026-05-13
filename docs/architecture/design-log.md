@@ -49,6 +49,7 @@
 | D-17 | **V1 范围** | **Chat + Task 双模式，CLI only；Realtime + Web UI 推 V2+** | 聚焦内核能力，不铺交互形态 |
 | D-18 | **Self-improvement V1 范围** | **显式偏好 MVP only；隐式信号推 V2+** | 显式偏好工作量小、价值确定；隐式信号需要大量 heuristic，投入产出不确定 |
 | D-19 | **Coding 提前到 0.2.5** | **新增 0.2.5 milestone，单 agent 形态完整跑通场景 4** | dogfood 红利早收，0.3 之后所有 milestone 都能用 Sigma 自己加速；单 agent coding 与 multi-agent 协作是两个独立设计空间，先各自跑通再组合 |
+| D-20 | **Tool 生态策略：MCP + OpenCLI 双接入** | **0.5 接 MCP（协议化、对外开放），0.6 接 OpenCLI（复用 144 个 site adapter，社媒场景救场）** | 两者定位互补不冲突：MCP 是协议（Sigma 既消费也对外暴露），OpenCLI 是产品（登录态站点 / 桌面应用专精）；不二选一才能"开放生态" |
 
 ### D-12 详解：Sub-agent 三级回退
 
@@ -223,6 +224,41 @@ Realtime ：1 分钟 5-10 次 audio signal（打断 / 沉默 / 笑声）+ 文本
 - 0.2.5 没有 Memory / RAG，coding 体验有上限（不能跨大量文件重构）——可接受，0.4 RAG 后会自然增强
 
 **度量 dogfood 是否成功**：0.2.5 退出标准里要求"至少 1 次用 Sigma 写 Sigma 的 PR 合入 main"——以可验证的产出锚定 milestone。
+
+### 4.8 Tool 生态策略：MCP + OpenCLI 双接入（D-20 详解）
+
+**问题**：Sigma 自己写所有 tool 不现实——社媒抓取、SaaS API 集成、数据库连接、桌面应用控制每一个都是独立的工程量。要么自己造，要么接生态。
+
+**两个候选生态**：
+
+| | MCP | OpenCLI |
+|---|---|---|
+| 形态 | 协议（JSON-RPC over stdio / HTTP+SSE） | npm 产品（CLI + Chrome 扩展） |
+| 强项 | filesystem / DB / SaaS API（几百个 server 现成） | 登录态网站（144 site adapter）+ 桌面 Electron 应用 |
+| 弱项 | 网站抓取（很少有人写）；中文站点几乎没有 | 协议不通用；只能 shell 调用 |
+| 跨客户端 | ✅ 是协议，Claude Desktop / Cursor / 自研 agent 都通 | ⚠️ 任何能 shell 的客户端都能用，但不是协议 |
+| Sigma 接入成本 | 中（实现 MCP client） | 低（subprocess + JSON） |
+| Sigma 对外开放 | ✅ Sigma 也可作为 MCP server 暴露给其他 agent | ❌ 反向不通 |
+
+**关键洞察**：两者定位**互补**，不是替代关系。
+
+- **MCP 给的是"协议化的开放"**——Sigma 既能消费别人的 server，也能把自己的能力暴露成 server 给 Claude Desktop / Cursor / 自研 agent 调用。这是"开放生态"的核心。
+- **OpenCLI 给的是"登录态站点的零成本"**——它的 144 个 adapter 复用 Chrome 已登录态，是中文社媒和桌面应用场景几乎不可替代的捷径。
+
+**所以决策是双接入**：
+- 0.5 接 MCP（multi-agent 落地时刚好需要 researcher / analyst 调外部 SaaS）
+- 0.6 接 OpenCLI（场景 1 社媒推送的实现路径——不自己写抓取，直接调 `opencli xiaohongshu` 等命令）
+
+**与 ToolPort 的关系**：
+- ToolPort 不变。MCP / OpenCLI / 内置 tool 都通过各自的 adapter 实现 ToolPort，在 registry 里平等存在
+- LLM 看到的是统一的 tool 列表，不感知 tool 来源；调度由 Sigma runtime 决定
+
+**对外暴露的安排**（V2+ 任务）：把 Sigma 自己的 tool / agent 通过 MCP server 协议暴露——这是把 Sigma 嵌入更大 AI 生态的钥匙。
+
+**风险**：
+- OpenCLI 引入 Node.js 运行时依赖（subprocess 调用，不污染 Python 包），全自动化部署场景（无 Chrome 的服务器）需要降级策略
+- MCP 客户端实现要做好（stdio / SSE / 流式 / 错误传播），是 0.5 工作量的实质部分
+- OpenCLI adapter 维护风险（site DOM 变化）由其社区承担，Sigma 不背
 
 ---
 
