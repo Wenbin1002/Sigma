@@ -349,6 +349,7 @@ sigma agent install <name-or-url>
 | Agent metadata 的精确 schema | 未决（U-3） |
 | BlockedException reason 类型清单 | 未决（U-4） |
 | Sub-agent 分发与发现的安全模型 | 未决（V3+） |
+| Sub-agent 上下文与权限的深层设计（上下文边界、权限粒度、信任模型等） | 未决（U-12），真实事故驱动，见 [设计决策日志 § 4.9](../architecture/design-log.md) |
 
 ---
 
