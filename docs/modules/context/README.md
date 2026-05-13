@@ -133,11 +133,13 @@ context:
 
 | 模块 | 职责 | 关系 |
 |---|---|---|
-| **Memory** | 跨会话/会话内的状态存储 | Context 的来源之一 |
-| **RAG** | 文档 / 代码 / 知识库的检索 | Context 的来源之一 |
+| **Memory** | Agent 从交互中积累的认知（关于用户 + 关于领域） | Context 的来源之一 |
+| **RAG** | 原始材料（文档/代码/知识库）的索引和检索 | Context 的来源之一 |
 | **Context Engine** | 把上面所有源拼成最终 LLM input | 消费者 / 编排者 |
 
-**Memory 和 RAG 都不直接面向 LLM**——它们的输出进入 Context Engine 拼装。
+**Memory 和 RAG 在同一个 domain 内共存**——RAG 提供事实基础，Memory 积累理解深度。Context Engine 同时从两者检索，合并结果。
+
+Memory 召回的内容（已有推理结论）优先级通常高于 RAG chunk（原始片段）——agent 已有的理解比重新从碎片拼装更高效。
 
 ---
 
@@ -154,7 +156,7 @@ class AgentContext:
     
     # 共享资源访问
     memory_scope: MemoryScope          # 该 sub-agent 能看到哪一层 memory
-    rag_indices: list[str]             # 该 sub-agent 能用哪些 RAG index
+    domains: list[str]                 # 该 sub-agent 能用哪些 domain（RAG + domain memory）
 ```
 
 Sub-agent 内部可能再次组装自己的 context（比 master 更聚焦），不直接把 master 的 context 全塞 LLM。

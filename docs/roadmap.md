@@ -9,11 +9,11 @@
 ## 总览
 
 ```
-0.1 ──→ 0.2 ──→ 0.2.5 ─→ 0.3 ──→ 0.4 ──→ 0.5 ──────→ 0.6 ＝ V1
-骨架      Task    Coding    Memory   RAG    Multi-Agent  周期
-单Agent   引擎    单 agent  Context  讨论书 Skill         社媒
-对话      基建    场景4✓    偏好MVP  场景3✓ 场景2✓        场景1✓
-                  (dogfood)                 场景4增强
+0.1 ──→ 0.2 ──→ 0.2.5 ─→ 0.3 ──→ 0.4 ──────→ 0.5 ──────→ 0.6 ＝ V1
+骨架      Task    Coding    Memory   RAG+复利   Multi-Agent  周期
+单Agent   引擎    单 agent  Context  讨论书     Skill         社媒
+对话      基建    场景4✓    Domain   场景3✓     场景2✓        场景1✓
+                  (dogfood) 偏好MVP             场景4增强
 ```
 
 | Milestone | 主题 | 核心模块 | 解锁场景 |
@@ -21,8 +21,8 @@
 | **0.1** | 骨架 + 单 Agent 对话 | Agent · LLM · Tool · Trace · Chat · Server · CLI | — |
 | **0.2** | Task 引擎 | Task · Chat↔Task | — |
 | **0.2.5** | Coding（单 agent）+ dogfood | Coding tools · Plan/Edit/Run loop · 错误自修复 | 场景 4 ✓（单 agent） |
-| **0.3** | Memory + Context + Self-Improvement MVP | Memory · Context · Improvement | — |
-| **0.4** | RAG + 讨论书 | RAG · Context 增强 | 场景 3 ✓ |
+| **0.3** | Memory + Context + Self-Improvement MVP | Memory · Context · Improvement · Domain | — |
+| **0.4** | RAG + 知识复利 + 讨论书 | RAG · Context 增强 · Improvement 扩展 | 场景 3 ✓ |
 | **0.5** | Multi-Agent + Skill + 数据分析 | Agent(multi) · Skill · LLM(multi-provider) | 场景 2 ✓ · 场景 4 增强 |
 | **0.6** | 周期 Task + 推送 + 社媒 | Task(cron) · 推送 · Trace viewer | 场景 1 ✓ |
 | **V1** | = 0.6 完成，4 个核心场景全部跑通 | 全部 | **全部** ✓ |
@@ -119,36 +119,43 @@
 
 ## 0.3：Memory + Context + Self-Improvement MVP
 
-**目标**：让 Sigma 有记忆、会记偏好——"越用越懂你"的起点。
+**目标**：让 Sigma 有记忆、会记偏好——"越用越懂你"的起点。同时建立 Domain 隔离机制，为 0.4 知识复利奠基。
 
 **做什么**：
-- Memory 三层存储：global（用户偏好）/ session（对话上下文）/ task（临时 state）
+- Memory 三种类型：Semantic（事实/知识）/ Episodic（经历）/ Procedural（做事方式）
+- Memory 两个维度：global（跨域偏好）+ domain（领域隔离）
+- Domain 管理：`sigma domain create/list/delete`
 - Memory CLI：`sigma memory list / edit / delete`
 - Context Engine：多源拼装（system prompt + memory + 历史压缩 + tool/skill metadata）+ token budget 管理
-- Self-improvement MVP：**显式偏好**提取（用户明说"以后用更简洁的风格"）→ memory 写入 → 下次对话自动生效
+- Self-improvement MVP：**显式偏好**提取（用户明说"以后用更简洁的风格"）→ global memory 写入 → 下次对话自动生效
 - 用户可查看 / 编辑 / 删除 memory 条目（可审计）
 
-**不做**：RAG（下个 milestone）、隐式信号提取（V2+）、audio metadata
+**不做**：RAG（下个 milestone）、领域认知提取（0.4 配合 RAG 落地）、隐式信号提取（V2+）、audio metadata
 
 **退出标准**：
 - [ ] 用户说"以后回答用中文"，下次新 session 自动用中文
 - [ ] `sigma memory list` 能看到提取的偏好，可编辑
+- [ ] `sigma domain create code-sigma` 能创建领域，memory 在域内隔离
 - [ ] 隔天开新 session 还记得偏好
 - [ ] 长对话（50+ 轮）context 压缩正常，不崩不截断
 
 ---
 
-## 0.4：RAG + 讨论书场景
+## 0.4：RAG + 知识复利 + 讨论书场景
 
-**目标**：Sigma 能基于外部文档回答问题，场景 3（讨论书）端到端跑通。
+**目标**：Sigma 能基于外部文档回答问题，并且**越用越聪明**——知识随使用复利增长。场景 3（讨论书）端到端跑通。
 
 **做什么**：
-- RAG 多 index 管理（每个 index 独立：书、代码库、行业知识等）
+- RAG 多 index 管理（每个 domain 有自己的 RAG index）
 - Indexing pipeline：parse → chunk → embed → vector store
 - 至少接 1 个 vector store（Qdrant / Chroma / LanceDB）
+- Ingest 预理解：添加素材时 agent 提炼结构化理解（实体、关系、摘要）→ 写入 domain memory
+- Query 回写：深度分析后有价值的结论沉淀到 domain memory
+- Lint 循环（self-improvement 扩展）：领域认知提取 + 矛盾检测 + 过时标记
 - 检索带引用（保留源位置 metadata）
-- Context Engine 增强：RAG 检索结果作为 context 源之一，参与 token budget 和优先级排序
-- CLI：`sigma rag create <name> / index <path> / search <query> / list / delete`
+- 双路径检索：RAG 向量检索 + domain memory 召回，由 Context Engine 合并
+- 原始材料只读原则：agent 只能读 RAG，推导结论只写 Memory
+- CLI：`sigma rag add <path> --domain <name> / search <query> / list / delete`
 - 场景 3（多轮讨论一本书 + 总结笔记）端到端跑通
 
 **不做**：Multi-agent（单 agent + RAG tool 即可）、代码库索引优化（后续迭代）
@@ -156,8 +163,9 @@
 **退出标准**：
 - [ ] 上传一本书 → 基于内容多轮问答，回答带引用（章节 / 页码）
 - [ ] 讨论 50 轮后让 Sigma 总结笔记，质量可用
-- [ ] 多个 index 共存互不干扰
-- [ ] RAG 检索结果在 context 中正确参与 token budget 分配
+- [ ] 第二次讨论相同话题时，agent 能调用之前的分析结论（query 回写生效）
+- [ ] 多个 domain 共存互不干扰
+- [ ] RAG 检索结果和 domain memory 在 context 中正确参与 token budget 分配
 
 ---
 

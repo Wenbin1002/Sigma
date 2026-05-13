@@ -2,21 +2,25 @@
 
 > Self-improvement 的实现层。
 >
-> 这是 [Self-improvement](../../architecture/self-improvement.md) 的实现细节文档。
+> 这是 [Self-improvement](../../features/self-improvement.md) 的实现细节文档。
 
 ---
 
 ## 1. 模块职责
 
-从用户互动中提取 signal，转换为 memory / agent 行为调整：
+从用户互动中提取 signal，转换为 memory / agent 行为调整。两个维度：
 
 ```
-Signal sources                Extraction              Routing & Apply
-─────────────────             ─────────────           ───────────────
-显式用户声明      ─┐
-重复 / 转话题等   ─┼─→ Signal Extractors ─→  分类  ─→  Memory     (主要)
-Audio metadata   ─┤                              └─→  Agent meta  (次要)
-Task 反馈        ─┘                              └─→  推送过滤    (场景 1)
+学用户（原有）                               学知识（D-24 新增）
+─────────────                               ─────────────
+Signal sources        Extraction            Signal sources           Extraction
+─────────────         ─────────             ─────────────            ─────────
+显式用户声明   ─┐                            交互中的深度分析  ─┐
+重复/转话题等  ─┼→ Extractors → Memory      session 对话历史  ─┼→ Extractors → Domain Memory
+Audio metadata ─┤    (global)               原始材料变更     ─┤    (domain-scoped)
+Task 反馈      ─┘                                           ─┘
+                └→ Agent meta                                └→ 矛盾/过时检测
+                └→ 推送过滤
 ```
 
 ---
@@ -29,21 +33,27 @@ src/improvement/
   registry.py           # extractor / router 注册
   
   signals/              # Signal 定义
-    types.py            #   显式偏好 / 隐式行为 / audio / task 反馈
+    types.py            #   显式偏好 / 隐式行为 / audio / task 反馈 / 领域认知
   
   extractors/
     explicit.py         #   从对话中提取显式声明
     pattern.py          #   从行为模式中提取（重复 / 转话题）
     audio.py            #   从 realtime audio metadata 提取（V4）
     task.py             #   从 task 完成 / 取消中提取
+    knowledge.py        #   从交互中提取领域认知（D-24 新增）
   
   pipeline.py           # Signal → 反馈路由
   apply/
-    memory_writer.py    # 写入 Memory
+    memory_writer.py    # 写入 Memory（global + domain）
     agent_tuner.py      # 调整 Agent metadata
     filter_updater.py   # 推送过滤更新
   
-  audit.py              # 审计 / 可解释性
+  lint/                 # Domain memory 自检（D-23 Lint 循环）
+    consistency.py      #   矛盾检测
+    staleness.py        #   过时检测（原始材料变更后标记受影响结论）
+    cleanup.py          #   低质量条目清理
+  
+  audit.py              # 审计 / 可解释性 / 用户可见
 ```
 
 ---

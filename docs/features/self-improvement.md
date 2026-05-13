@@ -1,6 +1,8 @@
 # Self-Improvement
 
-> Sigma 怎么从用户互动中学习——**让 agent 越用越懂用户**。
+> Sigma 怎么从交互中学习——**让 agent 越用越聪明**。
+>
+> 两个维度：**学用户**（越来越懂你）+ **学知识**（越来越懂领域）。
 >
 > 这是 Sigma 真正的差异化能力之一，但需要建立在 memory / trace / realtime 之上。
 
@@ -11,13 +13,13 @@
 ### 是
 
 - **从用户反馈和互动中学习**——更新 memory、调整偏好、改进 prompt 选择
+- **从交互中积累领域认知**——提炼推理结论、检测过时知识、维护 domain memory 一致性
 - **闭环驱动**——signal 提取 → 写入 memory → 影响下次行为 → 看新的 signal
 - **本地学习**——所有 signal 处理在本地，不上传
 
 ### 不是
 
 - ❌ **不是模型微调**（不在 Sigma 范围）
-- ❌ **不是 RAG 自动更新**（那是 RAG 模块的事）
 - ❌ **不是无监督学习**（要可解释、可审计、可被用户 override）
 
 ---
@@ -88,18 +90,35 @@
 
 ## 4. 反馈到哪里
 
+### 4.1 学用户（原有能力）
+
 ```
 Signal 提取
    ↓
 分类
    ├── 偏好类      → Global Memory（"用户喜欢简洁"）
-   ├── 知识类      → RAG / Memory（"用户提到自己在金融业"）
-   ├── 兴趣类      → Memory + 推送过滤（场景 1 用户兴趣模型）
+   ├── 个人信息类   → Global Memory（"用户在金融业"）
+   ├── 兴趣类      → Global Memory + 推送过滤（场景 1 用户兴趣模型）
    ├── 风格类      → Global Memory + Agent prompt 调优
    └── 元能力类    → Agent metadata（"这个 agent 经常被用户中断 → 调短风格"）
 ```
 
-详见 [Memory 模块](../modules/memory/)。
+### 4.2 学知识（D-24 新增）
+
+```
+Signal 提取（session 后 / 周期性）
+   ↓
+分类
+   ├── 领域认知      → Domain Memory / Semantic（"这本书的核心主题是…"）
+   ├── 经验教训      → Domain Memory / Episodic（"上次改这里踩了坑"）
+   ├── 做事方式      → Domain Memory / Procedural（"分析数据的步骤是…"）
+   ├── 矛盾检测      → 标记冲突的 memory 条目，待确认
+   └── 过时检测      → 标记受原始材料变更影响的结论
+```
+
+**学用户**写 global memory；**学知识**写 domain memory。两者共享同一条 pipeline（提取 → 质量判断 → 持久化 → 召回），区别在 signal 来源和存储位置。
+
+详见 [Memory 模块](../modules/memory/)、[设计决策日志 § D-21~D-24](architecture/design-log.md)。
 
 ---
 
