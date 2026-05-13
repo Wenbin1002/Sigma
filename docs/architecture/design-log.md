@@ -48,6 +48,7 @@
 | D-16 | **Roadmap 重构** | **V1 = 唯一完整交付目标，0.1→0.6 六个 milestone** | 旧 V0-V5 拆得太碎且不连续；新结构每个 milestone 独立可 demo，按场景解锁排序 |
 | D-17 | **V1 范围** | **Chat + Task 双模式，CLI only；Realtime + Web UI 推 V2+** | 聚焦内核能力，不铺交互形态 |
 | D-18 | **Self-improvement V1 范围** | **显式偏好 MVP only；隐式信号推 V2+** | 显式偏好工作量小、价值确定；隐式信号需要大量 heuristic，投入产出不确定 |
+| D-19 | **Coding 提前到 0.2.5** | **新增 0.2.5 milestone，单 agent 形态完整跑通场景 4** | dogfood 红利早收，0.3 之后所有 milestone 都能用 Sigma 自己加速；单 agent coding 与 multi-agent 协作是两个独立设计空间，先各自跑通再组合 |
 
 ### D-12 详解：Sub-agent 三级回退
 
@@ -200,6 +201,28 @@ Realtime ：1 分钟 5-10 次 audio signal（打断 / 沉默 / 笑声）+ 文本
 | 内核位置 | Chat Engine | Task Engine | Realtime Middleware |
 
 **结论**：三模式是平级的。Realtime 不是 Chat 加语音输入，也不是 Task 的实时版本——它有自己的内核流程（前注入/中拦截/后沉淀），跟 Chat / Task 共享底层 memory / RAG / agent，但不共享调度引擎。
+
+### 4.7 Coding 提前到 0.2.5 的理由（D-19 详解）
+
+**触发问题**：原 roadmap 把 coding 放在 0.5（和 multi-agent / skill / 多 provider 路由 / 数据分析打包）。在 0.5 之前 Sigma 帮不了自己写自己——dogfood 红利全部错过。
+
+**核心论点**：dogfood 红利**复利**——0.2.5 完成后，0.3 / 0.4 / 0.5 / 0.6 四个 milestone 都能让 Sigma 自己参与开发；越早 dogfood，越早从用户视角发现 Sigma 的设计缺陷。
+
+**为什么是单 agent 形态而不是直接 coder sub-agent**：
+- 单 agent + 强 tool 已经能覆盖 80% coding 体验（参考 Claude Code / Cursor 早期形态）
+- multi-agent 路由（supervisor + BlockedException + sub-agent metadata）是独立的设计空间，跟 coding loop 解耦
+- 0.5 接 supervisor 只需把 0.2.5 的单 agent coding 包成 sub-agent，**不重写**
+
+**对其他 milestone 的影响**：
+- 0.5 不再从零做 coder agent，而是把 0.2.5 成果包装为 sub-agent + 接入 supervisor
+- 0.5 场景 4 的退出标准从"端到端跑通"变为"multi-agent 协作增强"
+- 0.3 / 0.4 / 0.6 不变
+
+**风险**：
+- 0.5 接 supervisor 时，coder 接口可能要小幅调整（影响 1-2 周）——但远小于"coder 在 0.5 才从零做"的代价
+- 0.2.5 没有 Memory / RAG，coding 体验有上限（不能跨大量文件重构）——可接受，0.4 RAG 后会自然增强
+
+**度量 dogfood 是否成功**：0.2.5 退出标准里要求"至少 1 次用 Sigma 写 Sigma 的 PR 合入 main"——以可验证的产出锚定 milestone。
 
 ---
 
