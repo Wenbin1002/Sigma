@@ -12,18 +12,59 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # type(scope): subject
-          # Types: feat|fix|refactor|test|docs|chore|perf|style
-          # Scopes: voice|agent|rag|memory|tools|trace|core|ports|runtime|context|app|deps|config|project
-          PATTERN='^(feat|fix|refactor|test|docs|chore|perf|style)\((voice|agent|rag|memory|tools|trace|core|ports|runtime|context|app|deps|config|project)\): .{1,50}$'
+          TYPES="feat|fix|refactor|test|docs|chore|perf|style"
+          SCOPES="voice|agent|rag|memory|tools|trace|core|ports|runtime|context|app|deps|config|project"
+          SUBJECT_MAX=50
 
-          if [[ ! "$PR_TITLE" =~ $PATTERN ]]; then
-            echo "::error::PR title does not match format: <type>(<scope>): <subject>"
+          ERRORS=()
+
+          # 1. Overall format: type(scope): subject
+          if [[ ! "$PR_TITLE" =~ ^[a-z]+\([a-z]+\):\ .+ ]]; then
+            ERRORS+=("Format must be: type(scope): subject")
+            ERRORS+=("  Got: $PR_TITLE")
+          else
+            # Extract parts
+            TYPE="${PR_TITLE%%(*}"
+            SCOPE="${PR_TITLE#*(}"
+            SCOPE="${SCOPE%%)*}"
+            SUBJECT="${PR_TITLE#*: }"
+
+            # 2. Check type
+            if [[ ! "$TYPE" =~ ^($TYPES)$ ]]; then
+              ERRORS+=("Invalid type: '$TYPE'")
+              ERRORS+=("  Valid types: $TYPES")
+            fi
+
+            # 3. Check scope
+            if [[ ! "$SCOPE" =~ ^($SCOPES)$ ]]; then
+              ERRORS+=("Invalid scope: '$SCOPE'")
+              ERRORS+=("  Valid scopes: $SCOPES")
+            fi
+
+            # 4. Check subject length
+            SUBJECT_LEN=${#SUBJECT}
+            if [ "$SUBJECT_LEN" -gt "$SUBJECT_MAX" ]; then
+              ERRORS+=("Subject too long: $SUBJECT_LEN chars (max $SUBJECT_MAX)")
+              ERRORS+=("  Subject: $SUBJECT")
+            fi
+
+            # 5. Check subject starts lowercase
+            if [[ "$SUBJECT" =~ ^[A-Z] ]]; then
+              ERRORS+=("Subject should start lowercase")
+              ERRORS+=("  Got: $SUBJECT")
+            fi
+
+            # 6. Check no trailing period
+            if [[ "$SUBJECT" =~ \.$ ]]; then
+              ERRORS+=("Subject should not end with a period")
+            fi
+          fi
+
+          if [ ${#ERRORS[@]} -gt 0 ]; then
+            echo "PR title: $PR_TITLE"
             echo ""
-            echo "Got: $PR_TITLE"
-            echo ""
-            echo "Expected pattern: type(scope): subject (max 50 chars in subject)"
-            echo "Types: feat|fix|refactor|test|docs|chore|perf|style"
-            echo "Scopes: voice|agent|rag|memory|tools|trace|core|ports|runtime|context|app|deps|config|project"
+            for err in "${ERRORS[@]}"; do
+              echo "::error::$err"
+            done
             exit 1
           fi
