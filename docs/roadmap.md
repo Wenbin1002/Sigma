@@ -9,20 +9,21 @@
 ## 总览
 
 ```
-0.1 ──→ 0.2 ──→ 0.3 ──→ 0.4 ──→ 0.5 ──────────→ 0.6 ＝ V1
-骨架      Task    Memory   RAG    Multi-Agent      周期
-单Agent   引擎    Context  讨论书  Skill            社媒
-对话      基建    偏好MVP  场景3✓  Coding+数据分析   场景1✓
-                                  场景2✓ 场景4✓
+0.1 ──→ 0.2 ──→ 0.2.5 ─→ 0.3 ──→ 0.4 ──→ 0.5 ──────→ 0.6 ＝ V1
+骨架      Task    Coding    Memory   RAG    Multi-Agent  周期
+单Agent   引擎    单 agent  Context  讨论书 Skill         社媒
+对话      基建    场景4✓    偏好MVP  场景3✓ 场景2✓        场景1✓
+                  (dogfood)                 场景4增强
 ```
 
 | Milestone | 主题 | 核心模块 | 解锁场景 |
 |-----------|------|---------|----------|
 | **0.1** | 骨架 + 单 Agent 对话 | Agent · LLM · Tool · Trace · Chat · Server · CLI | — |
 | **0.2** | Task 引擎 | Task · Chat↔Task | — |
+| **0.2.5** | Coding（单 agent）+ dogfood | Coding tools · Plan/Edit/Run loop · 错误自修复 | 场景 4 ✓（单 agent） |
 | **0.3** | Memory + Context + Self-Improvement MVP | Memory · Context · Improvement | — |
 | **0.4** | RAG + 讨论书 | RAG · Context 增强 | 场景 3 ✓ |
-| **0.5** | Multi-Agent + Skill + Coding + 数据分析 | Agent(multi) · Skill · LLM(multi-provider) | 场景 2 ✓ · 场景 4 ✓ |
+| **0.5** | Multi-Agent + Skill + 数据分析 | Agent(multi) · Skill · LLM(multi-provider) | 场景 2 ✓ · 场景 4 增强 |
 | **0.6** | 周期 Task + 推送 + 社媒 | Task(cron) · 推送 · Trace viewer | 场景 1 ✓ |
 | **V1** | = 0.6 完成，4 个核心场景全部跑通 | 全部 | **全部** ✓ |
 
@@ -33,7 +34,7 @@
 | 1 | 每天早上从社交媒体（小红书/X/知乎）筛选感兴趣内容并推送 | task（周期性） | 0.6 |
 | 2 | 查询生猪期货数据，生成趋势图，判断供需走向 | task（一次性） | 0.5 |
 | 3 | 多轮讨论一本书，最终总结笔记 | chat | 0.4 |
-| 4 | Coding（写代码、改代码、跑代码） | chat + task | 0.5 |
+| 4 | Coding（写代码、改代码、跑代码） | chat + task | **0.2.5**（单 agent）→ 0.5（multi-agent 协作增强） |
 
 ---
 
@@ -47,7 +48,7 @@
 - `src/` 项目骨架（按 [架构总览](architecture/overview.md) § 9 项目结构搭建）
 - LangGraph 内核接入（Master Agent 单节点 graph）
 - LLMPort + 1 个 adapter（OpenAI 或 DeepSeek）
-- ToolPort + 内置 tool（read_file / write_file / shell / web_search）
+- ToolPort + 内置 tool（read_file / write_file / shell / web_search / grep / glob / edit_file / git）
 - TracerPort + JSONLTracer
 - CheckpointerPort + LangGraph SqliteSaver
 - Server（HTTP/SSE）暴露最简 chat API
@@ -74,13 +75,45 @@
 - Chat ↔ Task 打通：升级建议（chat 里 agent 建议转 task）+ 完成回流（task 结果注入 chat）
 - CLI：`sigma task new / list / view / pause / resume / cancel`
 
-**不做**：周期性 task（cron）、multi-agent、RAG / Memory、Coding agent
+**不做**：周期性 task（cron）、multi-agent、RAG / Memory、coding 专用循环（下一个 milestone）
 
 **退出标准**：
 - [ ] `sigma task new "帮我总结这篇文章"` 能后台跑 task
 - [ ] Task 卡住能进 paused，`sigma task resume` 能续
 - [ ] Chat 中建议升级 task，task 完成后回流通知
 - [ ] Trace 里能完整看到 task 执行（含 pause / resume）
+
+---
+
+## 0.2.5：Coding（单 agent 形态）+ dogfood
+
+**目标**：让 Sigma 在**单 agent 形态**下能稳定写 / 改 / 跑代码，从此 Sigma 能反哺自身开发——0.3 之后所有 milestone 都用 Sigma 自己加速。
+
+**为什么单独成一个 milestone**（而不是放在 0.5 multi-agent 里）：
+- Dogfood 红利早收 = 后续 4 个 milestone 全部受益
+- 单 agent coding 跟 multi-agent 协作是**两个独立的设计空间**，先各自跑通再组合，符合 "小步走"
+- 0.5 接 supervisor 时只需把 0.2.5 的 coder 包成 sub-agent，不会重写
+
+**做什么**：
+- Coding tool 完整化：精准 patch（diff-style edit，避免整文件覆盖）/ apply_patch / lint / test runner / code search（基于 0.1 的 grep/glob 增强）
+- Plan / Edit / Run / Verify 循环：单 agent 内置 prompt 编排（不引入 sub-agent 概念）
+- 错误自修复循环：跑测试 → 失败 → 读错误 → 改代码 → 重跑（最多 N 轮，超过则三级回退）
+- Shell 沙箱基建：CWD 锁定 / 黑名单（rm -rf / / sudo / curl | sh）/ 超时 / 输出截断
+- Coding-aware context：自动收集相关文件（imports / 定义 / 测试），打包进 LLM context
+- CLI：`sigma code "<task>"` 直接进入 coding task；`sigma chat` 内 LLM 自主使用 coding tool
+- **Dogfood 验收**：用 Sigma 自己开发 0.3 的 Memory 模块的某个子任务（端到端可见进展）
+
+**不做**：
+- coder sub-agent（留到 0.5，届时把本 milestone 的 coding 逻辑包进 sub-agent）
+- 多文件大型重构（context 还没有 RAG，先做小到中等改动）
+- 代码库索引（等 0.4 RAG）
+
+**退出标准**：
+- [ ] `sigma code "在 src/utils.py 加 fibonacci 函数并写测试"` 能端到端跑通（写代码 / 跑测试 / 失败自修复 / 通过）
+- [ ] `sigma code` 能在 Sigma 自己的代码库里跑（用 Sigma 改 Sigma 的小功能）
+- [ ] 错误自修复循环上限可配置，超限触发 task pause（三级回退 L3）
+- [ ] Shell 沙箱：危险命令拒绝执行，CWD 越界拒绝
+- [ ] 至少 1 次"用 Sigma 写 Sigma"产出的 PR 合入 main
 
 ---
 
@@ -128,23 +161,23 @@
 
 ---
 
-## 0.5：Multi-Agent + Skill + Coding + 数据分析场景
+## 0.5：Multi-Agent + Skill + 数据分析场景
 
-**目标**：扩展模型完整落地（Tool / Skill / Agent 三层正交），场景 2（期货数据分析）+ 场景 4（Coding）端到端跑通。
+**目标**：扩展模型完整落地（Tool / Skill / Agent 三层正交），场景 2（期货数据分析）端到端跑通；场景 4（Coding）从单 agent 升级为 multi-agent 协作形态。
 
 **做什么**：
 - Master Agent + Supervisor 路由
 - @-mention 显式召唤（`@researcher 帮我查数据`）
 - Sub-agent 三级回退（L1 自己尽力 → L2 主 agent 代答 → L3 升级用户）+ BlockedException 协议
 - 至少 3 个内置 sub-agent：researcher（资料收集）/ coder（代码执行）/ analyst（数据分析）
-- Coder agent：文件操作策略、代码执行、错误修复循环
+- **Coder sub-agent = 把 0.2.5 的 coding 单 agent 形态包成 sub-agent**——复用 plan/edit/run/verify 循环、tool 集合、shell 沙箱；新增的只是 supervisor 路由 + BlockedException 协议
 - Sub-agent 用户扩展点（`~/.sigma/agents/`）
 - Skill 系统：扫描 `~/.sigma/skills/` + metadata 注入 system prompt + 渐进式 `load_skill()` 加载
 - 至少 5+ 内置 skill
 - Skill 用户扩展点（`~/.sigma/skills/`）
 - LLM 多 provider：接入 ≥ 2 个 provider + cost-aware 路由（简单任务走便宜模型）
 - 场景 2（查询期货数据 + 生成趋势图 + 判断供需）端到端跑通
-- 场景 4（Coding：写代码 / 改代码 / 跑代码）端到端跑通
+- 场景 4 增强：multi-agent 协作（researcher 查依赖文档 + coder 写代码 + analyst 解释结果）
 
 **不做**：周期性 task（cron）、推送通道、Realtime
 
@@ -156,7 +189,7 @@
 - [ ] 用户写的 skill 能被自动发现和加载
 - [ ] 用户写的 sub-agent 能被 Supervisor 路由
 - [ ] 场景 2：期货数据分析端到端跑通（含趋势图生成）
-- [ ] 场景 4：coding 端到端跑通（写代码 / 改代码 / 跑代码 / 修 bug）
+- [ ] 场景 4 增强：coder + researcher 协作完成跨模块改动（如改 API 时同时更新文档）
 - [ ] Cost-aware 路由：同一 session 内简单问题走便宜模型，复杂分析走强模型
 
 ---
