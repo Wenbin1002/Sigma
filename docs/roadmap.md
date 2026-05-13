@@ -176,6 +176,7 @@
 - 至少 5+ 内置 skill
 - Skill 用户扩展点（`~/.sigma/skills/`）
 - LLM 多 provider：接入 ≥ 2 个 provider + cost-aware 路由（简单任务走便宜模型）
+- **Tool 生态接入（第一步）：MCP adapter**——实现 MCP client（stdio + HTTP/SSE），让 Sigma 能消费任意 MCP server（filesystem / postgres / 各家 SaaS API）；对外开放生态的奠基（详见 [D-20](architecture/design-log.md#2-已锁定的决策)）
 - 场景 2（查询期货数据 + 生成趋势图 + 判断供需）端到端跑通
 - 场景 4 增强：multi-agent 协作（researcher 查依赖文档 + coder 写代码 + analyst 解释结果）
 
@@ -191,6 +192,7 @@
 - [ ] 场景 2：期货数据分析端到端跑通（含趋势图生成）
 - [ ] 场景 4 增强：coder + researcher 协作完成跨模块改动（如改 API 时同时更新文档）
 - [ ] Cost-aware 路由：同一 session 内简单问题走便宜模型，复杂分析走强模型
+- [ ] MCP adapter 跑通：至少接入 1 个外部 MCP server（filesystem 或 postgres），researcher / analyst 能消费
 
 ---
 
@@ -201,17 +203,18 @@
 **做什么**：
 - 周期性 task 调度（cron 表达式 / 自然语言周期）
 - 推送通道（至少 1 种：邮件 / 桌面通知 / 自定义 webhook）
-- 社媒数据源 tool：小红书 / X / 知乎内容抓取
+- **Tool 生态接入（第二步）：OpenCLI adapter**——subprocess + JSON 调 `opencli`，复用其 144 个 site adapter（小红书 / X / 知乎 / Bilibili / Reddit / HackerNews ...），不自己写社媒抓取（详见 [D-20](architecture/design-log.md#2-已锁定的决策)）
 - CLI：`sigma task schedule` / 推送配置
 - 场景 1（每天早上从社媒筛选内容并推送）端到端跑通
 - Trace HTML viewer 完整版（timeline / 嵌套树 / cost 面板 / 过滤）
 - 全量集成测试 + 4 场景回归
 
-**不做**：Web UI、Realtime、隐式 self-improvement
+**不做**：Web UI、Realtime、隐式 self-improvement、为 OpenCLI 写新 site adapter（不在本项目范围）
 
 **退出标准**：
 - [ ] `sigma task schedule "每天早上8点推送社媒摘要"` 自动按时执行
 - [ ] 推送到邮件 / webhook 能收到
+- [ ] OpenCLI adapter 跑通：通过 `opencli xiaohongshu / x / zhihu` 等命令拿到结构化数据并入 Sigma context
 - [ ] 用户反馈（点开 / 忽略）能影响下次推送内容（通过 memory + 显式偏好）
 - [ ] Trace viewer 能打开 HTML 查看完整执行链路
 - [ ] **V1 退出标准**：4 个核心场景全部端到端跑通，可作为完整项目 demo
@@ -224,6 +227,7 @@
 
 - ✅ Chat + Task 双模式
 - ✅ Tool / Skill / Agent 三层扩展
+- ✅ Tool 生态：内置 + MCP + OpenCLI 三源（开放生态）
 - ✅ Multi-agent 协作 + 三级回退
 - ✅ Memory 三层 + 显式偏好学习
 - ✅ RAG 多 index + 引用
