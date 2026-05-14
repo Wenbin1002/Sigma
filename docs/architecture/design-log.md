@@ -55,6 +55,7 @@
 | D-23 | **知识复利三循环** | **Ingest（预理解）→ RAG 模块；Query 回写 → Context/RAG 模块；Lint（自检整理）→ Self-improvement 模块** | 借鉴 LLM-Wiki 的 AOT 思路，解决传统 RAG 的三个共性问题：推理结论不留存、全局理解缺失、知识不进化 |
 | D-24 | **Self-improvement 扩展** | **从"学用户"扩展为"学用户 + 学知识"**：新增领域认知提取 + domain memory 一致性检查 + 过时标记 | 两者共享同一条 pipeline（提取 → 质量判断 → 持久化 → 召回），区别只在 signal 来源和存储位置 |
 | D-25 | **Domain Memory 存储方向** | **SQLite 存结构化记录，content 字段为自然语言文本**；不用纯 Markdown，不用纯 KV | LLM 直接读 content 文本；metadata（来源、置信度、过时标记）走结构化查询；跟 Sigma 已有技术选型一致（session memory 已用 SQLite）。实现细节 0.3/0.4 落地时定 |
+| D-26 | **Context Builder 介入点** | **分层 context：Master 层做共享基座，Sub-agent 做零 LLM 调用的增量拼装** | 一次拼装覆盖不了专业 sub-agent 的差异化需求；全套重建又成本炸裂；分层兼顾两者。详见 § 4.11 |
 
 ### D-12 详解：Sub-agent 三级回退
 
@@ -344,6 +345,70 @@ Sigma 已有两种会积累的东西：
 | **Lint（自检整理）** | Self-improvement 模块 | session 后 / 周期性 | 后台成本，需 cost 控制 |
 
 Self-improvement 模块从"学用户"扩展为"学用户 + 学知识"——两者共享 signal 提取 → 质量判断 → 持久化 → 召回 这条 pipeline，区别只在 signal 来源和存储位置。
+
+### 4.11 Context Builder 介入点：分层 context（D-26 详解）
+
+**触发问题**（2026-05-14）：Context Engine 是在总入口（Master Agent）一次性介入，还是每个 sub-agent 都独立做全套 context assembly？
+
+**三种方案的分析**：
+
+| 方案 | 做法 | 优点 | 致命缺点 |
+|------|------|------|----------|
+| A：只在总入口 | Master 做一次完整拼装，sub-agent 拿透传的子集 | 实现简单，一套 budget | Master 不知道 sub-agent 需要什么；越专业的 agent 越不适用 |
+| B：每个 agent 独立全套 | 每个 sub-agent 自己调 Context Engine 做完整 assembly | 精确匹配每个 agent 需求 | 成本炸裂——N 个 agent 各做一轮 memory recall + RAG retrieval + summarization |
+| **C：分层（选定）** | **Master 做共享基座 + budget 分配；sub-agent 只做增量拼装** | **兼顾精确性和成本** | 接口设计复杂度略高 |
+
+**方案 C 的具体设计**：
+
+```
+User Input
+    ↓
+Context Engine 拼装 "shared base context"
+    ├─ system prompt 骨架
+    ├─ chat history（已压缩）
+    ├─ global memory
+    ├─ 当前 task state
+    └─ token budget 分配方案
+    ↓
+Master Agent（拿到完整 context）
+    ↓ 派任务时传递 AgentContext（含 shared base + sub-budget）
+Sub-agent
+    ↓ 在 shared base 之上，只做增量拼装：
+    ├─ 自己专属的 RAG 检索（如 coder 查代码库 index）
+    ├─ 自己 scope 的 memory（domain-specific）
+    ├─ 从 parent_artifacts 里 load_ref() 取回需要的原文
+    └─ 使用 master 分配的 sub-budget（不是自己随便花）
+```
+
+**增量拼装的边界——什么允许、什么不允许**：
+
+| 操作 | 是否允许 | 理由 |
+|------|---------|------|
+| Domain RAG 检索 | ✅ 允许 | 纯检索，成本可控 |
+| Domain memory 召回 | ✅ 允许 | 纯检索，成本可控 |
+| `load_ref()` 取回原文 | ✅ 允许 | 纯读取，已有数据 |
+| 触发 summarization LLM 调用 | ❌ 不允许 | 压缩在内容产出时 eager 做完（§ 3.3），sub-agent 拿到的已是"summary + ref"就绪状态 |
+| 重新压缩 chat history | ❌ 不允许 | Master 层已压缩一次，所有 sub-agent 共享 |
+| 重新算 global memory | ❌ 不允许 | 共享基座的一部分，只做一次 |
+
+**核心约束**：sub-agent 的增量拼装是**零 LLM 调用**的纯拼装/检索操作，成本完全可预测。
+
+**Token budget 分配**：由 Master 统一规划，sub-agent 在分配的 sub-budget 内做增量。
+
+```python
+sub_budget = total_budget - master_used - reserve_for_aggregation
+agent_context.token_budget = sub_budget
+```
+
+**落地节奏**：
+
+| 阶段 | Context 做什么 |
+|------|---------------|
+| 0.1 ~ 0.2（单 agent） | 只有 Master 层，Context Engine 全部在此做 |
+| 0.3（Memory + Context） | Context Engine 成型，**设计 `AgentContext` 时就考虑传递接口** |
+| 0.5（Multi-Agent） | 引入分层 context：Master 做共享基座 + budget 分配，sub-agent 做增量 |
+
+**0.3 是关键窗口**：虽然还没有 sub-agent，但 `AgentContext` 的接口要提前设计好，让 0.5 接入时不用重写 context engine。
 
 ---
 

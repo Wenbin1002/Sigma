@@ -145,19 +145,45 @@ Memory 召回的内容（已有推理结论）优先级通常高于 RAG chunk（
 
 ## 6. Context 在 Sub-agent 中的传递
 
+> **设计决策 D-26**：分层 context——Master 层做共享基座，Sub-agent 做零 LLM 调用的增量拼装。详见 [设计决策日志 § 4.11](../../architecture/design-log.md)。
+
 Master agent 派 sub-agent 时，传递的 `AgentContext`：
 
 ```python
 @dataclass
 class AgentContext:
-    chat_history: list[Message]        # 父对话历史（可压缩）
+    chat_history: list[Message]        # 父对话历史（已压缩）
     parent_artifacts: list[Artifact]   # 父 agent 已有的产物
     parent_state: dict                 # 父 agent 想传的额外信息
+    token_budget: int                  # Master 分配的 sub-budget
     
     # 共享资源访问
     memory_scope: MemoryScope          # 该 sub-agent 能看到哪一层 memory
     domains: list[str]                 # 该 sub-agent 能用哪些 domain（RAG + domain memory）
 ```
+
+### 6.1 分层 context 模型
+
+```
+Context Engine（Master 层，调用一次）
+    ↓ 拼装 shared base context
+    ├─ system prompt 骨架
+    ├─ chat history（已压缩）
+    ├─ global memory
+    ├─ 当前 task state
+    └─ token budget 分配方案
+    ↓
+Master Agent → 派任务 → AgentContext（含 shared base + sub-budget）
+    ↓
+Sub-agent 增量拼装（零 LLM 调用）
+    ├─ domain RAG 检索
+    ├─ domain memory 召回
+    └─ load_ref() 取回原文
+```
+
+**共享部分只做一次**：chat history 压缩、global memory 召回、token budget 总规划。
+
+**Sub-agent 增量部分**：只允许纯检索 / 纯读取操作（domain RAG、domain memory、load_ref），**不允许触发 summarization 等 LLM 调用**——压缩在内容产出时 eager 做完（§ 3.3），sub-agent 拿到的已是 "summary + ref" 就绪状态。
 
 Sub-agent 内部可能再次组装自己的 context（比 master 更聚焦），不直接把 master 的 context 全塞 LLM。
 
