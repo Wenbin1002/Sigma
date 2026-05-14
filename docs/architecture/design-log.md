@@ -50,6 +50,12 @@
 | D-18 | **Self-improvement V1 范围** | **显式偏好 MVP only；隐式信号推 V2+** | 显式偏好工作量小、价值确定；隐式信号需要大量 heuristic，投入产出不确定 |
 | D-19 | **Coding 提前到 0.2.5** | **新增 0.2.5 milestone，单 agent 形态完整跑通场景 4** | dogfood 红利早收，0.3 之后所有 milestone 都能用 Sigma 自己加速；单 agent coding 与 multi-agent 协作是两个独立设计空间，先各自跑通再组合 |
 | D-20 | **Tool 生态策略：MCP + OpenCLI 双接入** | **0.5 接 MCP（协议化、对外开放），0.6 接 OpenCLI（复用 144 个 site adapter，社媒场景救场）** | 两者定位互补不冲突：MCP 是协议（Sigma 既消费也对外暴露），OpenCLI 是产品（登录态站点 / 桌面应用专精）；不二选一才能"开放生态" |
+| D-21 | **Memory 定义扩展** | **Memory = agent 从交互中积累的一切有价值的认知**，包含 Semantic（事实/知识）、Episodic（经历）、Procedural（做事方式）三种类型 | 行业共识（Mem0/Zep/LangGraph）；原定义"只关于用户"过窄，遗漏了领域知识积累 |
+| D-22 | **Domain 隔离** | **知识按领域隔离**：每个 domain = RAG（原始材料）+ Memory（积累认知），各自进化互不干扰；真正跨域的只有极少数 UI 偏好 | 不同场景的偏好/经验可能冲突（coding 要客观可靠 vs 讨论书要感性发散），混在一起有害 |
+| D-23 | **知识复利三循环** | **Ingest（预理解）→ RAG 模块；Query 回写 → Context/RAG 模块；Lint（自检整理）→ Self-improvement 模块** | 借鉴 LLM-Wiki 的 AOT 思路，解决传统 RAG 的三个共性问题：推理结论不留存、全局理解缺失、知识不进化 |
+| D-24 | **Self-improvement 扩展** | **从"学用户"扩展为"学用户 + 学知识"**：新增领域认知提取 + domain memory 一致性检查 + 过时标记 | 两者共享同一条 pipeline（提取 → 质量判断 → 持久化 → 召回），区别只在 signal 来源和存储位置 |
+| D-25 | **Domain Memory 存储方向** | **SQLite 存结构化记录，content 字段为自然语言文本**；不用纯 Markdown，不用纯 KV | LLM 直接读 content 文本；metadata（来源、置信度、过时标记）走结构化查询；跟 Sigma 已有技术选型一致（session memory 已用 SQLite）。实现细节 0.3/0.4 落地时定 |
+| D-26 | **Context Builder 介入点** | **分层 context：Master 层做共享基座，Sub-agent 做零 LLM 调用的增量拼装** | 一次拼装覆盖不了专业 sub-agent 的差异化需求；全套重建又成本炸裂；分层兼顾两者。详见 § 4.11 |
 
 ### D-12 详解：Sub-agent 三级回退
 
@@ -276,6 +282,134 @@ Realtime ：1 分钟 5-10 次 audio signal（打断 / 沉默 / 笑声）+ 文本
 
 **结论**：这些问题在 0.5（multi-agent 落地）时必须深入研究，不能只打表面补丁。当前只记录信号，不给方案。
 
+### 4.10 传统 RAG "必死"及知识复利模型（D-21~D-24 的推导）
+
+**触发**（2026-05-13）：调研 Karpathy 的 LLM-Wiki（agent-native 知识库范式），发现它对传统 RAG 的批判精准命中 Sigma 的四个核心场景。
+
+#### 传统 RAG 在 Sigma 核心场景中的共性问题
+
+逐场景分析后，提炼出三个所有场景（3/4/2）都踩到的问题：
+
+| # | 问题 | 场景 3（讨论书） | 场景 4（Coding） | 场景 2（期货） |
+|---|------|-----------------|-----------------|---------------|
+| 1 | **推理结论不留存** | 主题分析用完就丢 | 架构理解用完就丢 | 供需模型用完就丢 |
+| 2 | **全局理解缺失** | 跨章节/跨书关联检索不到 | 跨模块隐式依赖检索不到 | 跨数据周期的趋势关联检索不到 |
+| 3 | **知识不进化** | 讨论越深索引越不够用 | 代码在变索引在腐烂 | 新数据来了旧分析不更新 |
+
+根本问题：**agent 的使用成本随时间线性增长（每次重新推理），而价值不会复合增长。**
+
+#### 洞察 1：缺失的是"第三种认知"
+
+Sigma 已有两种会积累的东西：
+
+- **Memory**（原定义）：积累对用户的理解 → 越来越懂"你"
+- **RAG index**：存放原始素材 → 是存量，不是复利
+
+缺失的是：**agent 在使用过程中产生的领域认知**——从原始材料和对话交互中推导出的理解、结论、模型。它不是原始事实（RAG），也不是用户偏好（Memory 旧定义），是两者交互的产物。
+
+#### 洞察 2：Memory 的定义画窄了
+
+调研行业实践（Mem0 / Zep / LangGraph / Claude Code / Cursor）后发现：**行业里的 Memory 从来不只是"关于用户"的**。
+
+认知科学的三层分类已成共识：
+
+- **Semantic Memory**：事实与知识（用户偏好 **+** 领域知识）
+- **Episodic Memory**：过去的经历（"上次改接口踩了什么坑"）
+- **Procedural Memory**：做事方式（"分析期货数据的步骤是…"）
+
+典型证据：Claude Code 的 Auto Memory 存的就是**项目理解和 debugging 洞察**——这正是我们说的"第三种认知"，但 Claude Code 没有另开模块，就放在 memory 体系里。
+
+**结论**：所谓"第三种东西"不需要新模块——**它就是 Memory，只是我们之前把 Memory 定义画窄了。**
+
+#### 洞察 3：知识需要按领域隔离
+
+不同场景的 memory 可能直接冲突：
+- coding 要求客观、可靠、精确
+- 讨论书要求发散、感性、联想
+- 两者的经验也永远不互通——coding 里学到的调试技巧用不到文学讨论里
+
+如果混在同一个"global memory"里，检索时互相干扰，甚至产生矛盾指令。
+
+**结论**：Memory 有两个正交的维度——**生命周期**（session / task / 长期）和**作用域**（global / domain 级）。大多数有价值的认知都属于某个具体领域。真正跨域的只有语言偏好、回复风格等极少数 UI 层偏好。
+
+每个领域（domain）是一个完整的知识上下文：RAG（原始材料）+ Memory（积累认知），绑在一起，共同进化。
+
+#### 洞察 4：知识复利的三循环归属
+
+借鉴 LLM-Wiki 的 Ingest / Query / Lint 三循环，但映射到 Sigma 的模块分工：
+
+| 循环 | Sigma 负责模块 | 触发时机 | token 成本模型 |
+|------|--------------|---------|--------------|
+| **Ingest（预理解）** | RAG 模块 | 用户添加素材时 | 一次性，用户主动触发 |
+| **Query 回写** | Context/RAG 模块 | 深度分析后顺手沉淀 | 边际≈零（推理本来就做了） |
+| **Lint（自检整理）** | Self-improvement 模块 | session 后 / 周期性 | 后台成本，需 cost 控制 |
+
+Self-improvement 模块从"学用户"扩展为"学用户 + 学知识"——两者共享 signal 提取 → 质量判断 → 持久化 → 召回 这条 pipeline，区别只在 signal 来源和存储位置。
+
+### 4.11 Context Builder 介入点：分层 context（D-26 详解）
+
+**触发问题**（2026-05-14）：Context Engine 是在总入口（Master Agent）一次性介入，还是每个 sub-agent 都独立做全套 context assembly？
+
+**三种方案的分析**：
+
+| 方案 | 做法 | 优点 | 致命缺点 |
+|------|------|------|----------|
+| A：只在总入口 | Master 做一次完整拼装，sub-agent 拿透传的子集 | 实现简单，一套 budget | Master 不知道 sub-agent 需要什么；越专业的 agent 越不适用 |
+| B：每个 agent 独立全套 | 每个 sub-agent 自己调 Context Engine 做完整 assembly | 精确匹配每个 agent 需求 | 成本炸裂——N 个 agent 各做一轮 memory recall + RAG retrieval + summarization |
+| **C：分层（选定）** | **Master 做共享基座 + budget 分配；sub-agent 只做增量拼装** | **兼顾精确性和成本** | 接口设计复杂度略高 |
+
+**方案 C 的具体设计**：
+
+```
+User Input
+    ↓
+Context Engine 拼装 "shared base context"
+    ├─ system prompt 骨架
+    ├─ chat history（已压缩）
+    ├─ global memory
+    ├─ 当前 task state
+    └─ token budget 分配方案
+    ↓
+Master Agent（拿到完整 context）
+    ↓ 派任务时传递 AgentContext（含 shared base + sub-budget）
+Sub-agent
+    ↓ 在 shared base 之上，只做增量拼装：
+    ├─ 自己专属的 RAG 检索（如 coder 查代码库 index）
+    ├─ 自己 scope 的 memory（domain-specific）
+    ├─ 从 parent_artifacts 里 load_ref() 取回需要的原文
+    └─ 使用 master 分配的 sub-budget（不是自己随便花）
+```
+
+**增量拼装的边界——什么允许、什么不允许**：
+
+| 操作 | 是否允许 | 理由 |
+|------|---------|------|
+| Domain RAG 检索 | ✅ 允许 | 纯检索，成本可控 |
+| Domain memory 召回 | ✅ 允许 | 纯检索，成本可控 |
+| `load_ref()` 取回原文 | ✅ 允许 | 纯读取，已有数据 |
+| 触发 summarization LLM 调用 | ❌ 不允许 | 压缩在内容产出时 eager 做完（§ 3.3），sub-agent 拿到的已是"summary + ref"就绪状态 |
+| 重新压缩 chat history | ❌ 不允许 | Master 层已压缩一次，所有 sub-agent 共享 |
+| 重新算 global memory | ❌ 不允许 | 共享基座的一部分，只做一次 |
+
+**核心约束**：sub-agent 的增量拼装是**零 LLM 调用**的纯拼装/检索操作，成本完全可预测。
+
+**Token budget 分配**：由 Master 统一规划，sub-agent 在分配的 sub-budget 内做增量。
+
+```python
+sub_budget = total_budget - master_used - reserve_for_aggregation
+agent_context.token_budget = sub_budget
+```
+
+**落地节奏**：
+
+| 阶段 | Context 做什么 |
+|------|---------------|
+| 0.1 ~ 0.2（单 agent） | 只有 Master 层，Context Engine 全部在此做 |
+| 0.3（Memory + Context） | Context Engine 成型，**设计 `AgentContext` 时就考虑传递接口** |
+| 0.5（Multi-Agent） | 引入分层 context：Master 做共享基座 + budget 分配，sub-agent 做增量 |
+
+**0.3 是关键窗口**：虽然还没有 sub-agent，但 `AgentContext` 的接口要提前设计好，让 0.5 接入时不用重写 context engine。
+
 ---
 
 ## 5. 未决问题（已知的下一步）
@@ -288,14 +422,17 @@ Realtime ：1 分钟 5-10 次 audio signal（打断 / 沉默 / 笑声）+ 文本
 | U-2 | **Master Agent vs Supervisor 的关系**（同一 LLM 调用 vs 独立 node） | 🟡 中 |
 | U-3 | **Agent metadata 协议**（name / description / 触发词如何声明） | 🟡 中 |
 | U-4 | **结构化的 sub-agent 错误协议**（reason 分类如何标准化） | 🟡 中 |
-| U-5 | **RAG 系统的具体形态**（多 index 怎么管理、和 memory 怎么交互） | 🔴 高 |
-| U-6 | **Memory 分层设计**（全局 / session / task 三层怎么实现） | 🔴 高 |
+| U-5 | ~~RAG 系统的具体形态~~ → **方向已由 D-22/D-23 锁定**（domain 模型 + 三循环），实现细节在 0.4 落地时定 | ✅ |
+| U-6 | ~~Memory 分层设计~~ → **方向已由 D-21/D-22 锁定**（三种类型 × domain 隔离），实现细节在 0.3 落地时定 | ✅ |
 | U-7 | **Trace 协议和 viewer 形态**（什么时候做） | 🟡 中 |
 | U-8 | ~~Self-improvement 形态~~ → **已升级为 D-14**（路径明确） | ✅ |
 | U-9 | **推送通道**（场景 1 引出的产品决策） | 🟢 低（实现期再定） |
 | U-10 | **是否抽 RealtimePort**（多 provider 抽象） | 🟢 低（V5 接 Gemini 时定） |
 | U-11 | **Realtime session 跟 Chat session 的切换**（聊一半切语音） | 🟢 低（V5+） |
 | U-12 | **Sub-agent 上下文与权限的深层设计**（见 § 4.9，0.5 时深挖） | 🔴 高 |
+| U-13 | **Domain 的生命周期管理**（创建 / 归档 / 跨 domain 引用 / domain 粒度该多细） | 🟡 中（0.3~0.4 落地时定） |
+| U-14 | **Query 回写的质量判断**（什么结论值得沉淀、置信度如何标注、谁确认） | 🟡 中（0.4 落地时定） |
+| U-15 | **Ingest 预理解的粒度**（编译出什么形态的产物、成本权衡） | 🟡 中（0.4 落地时定） |
 
 ---
 
