@@ -36,27 +36,17 @@
 
 ## Agent 工作流
 
-每个工作单元(对应一个独立 PR)在 `dev-log/<group>/<unit>/` 留下完整轨迹。三层流程:
-
-**Milestone 立项**(每个 milestone 一次):
-- 分支 `docs/<vX.Y>-spec`
-- 批量产出 `dev-log/<vX.Y>/README.md` + 各 unit 的 `issue.md`(复杂 unit 可加 `requirement.md`)
-- commit `docs(project): introduce <vX.Y> dev-log`,人 review → merge
-
-**单 unit 实施**(每个 unit 一个分支 / 一个 PR):
+每个工作单元(从一个已存在的 `issue.md` 开始,以 squash merge 结束)走五步:
 
 | Step | 动作 | 产物 / commit |
 |------|------|--------------|
-| 1 | `git checkout -b <type>/<name> origin/main`(name 取 unit 目录名去序号) | — |
-| 2 | agent 写 design.md → push draft PR | `docs(<scope>): design <vX.Y>/<NN>-<name>` |
+| 1 | `git checkout -b <type>/<name> origin/main`(name = unit 目录名去序号) | — |
+| 2 | agent 写 design.md → push draft PR | `docs(<scope>): design <unit-path>` |
 | 3 | 人 review design → approve → agent 实施 | `feat/test/fix(<scope>): <subject>` ×N |
-| 4 | agent 跑 `/review` skill → 生成 review.html → push 转 ready | `docs(<scope>): review <vX.Y>/<NN>-<name>` |
+| 4 | agent 跑 `/review` skill → 生成 review.html → push 转 ready | `docs(<scope>): review <unit-path>` |
 | 5 | 人 看 review.html → 没 blocker → squash merge | — |
 
-**Milestone 收尾**(每个 milestone 一次):
-- 分支 `chore/<vX.Y>-cleanup`
-- 跨 unit / 长期影响的 finding 从 review.html 提炼到 [`docs/architecture/design-log.md`](docs/architecture/design-log.md)
-- 更新 roadmap 退出标准 → commit `docs(project): close <vX.Y> milestone`
+`issue.md` 怎么来(自己写 / agent 拆 / GitHub Issues)和 unit 怎么分组,都不在本工作流范围。
 
 完整规则见 [`dev-log/README.md`](dev-log/README.md);git 操作细节见 [git-workflow skill](.claude/skills/git-workflow/SKILL.md)。**新开 unit 之前必读 dev-log/README.md。**
 
