@@ -34,6 +34,21 @@
 - 不要让 `app/` 直接调内核模块（必须走 `server/`）
 - 不要把"复杂任务的 skill"写成 skill——skill 是 prompt，复杂任务该写成 agent
 
+## Agent 工作流
+
+每个工作单元(对应一个独立 PR)都走 **立项 → 设计 → 实施 → review** 四步,产物落在 `dev-log/<group>/<unit>/`(目前按 milestone 分组,如 `v0.1/`):
+
+| Stage | 产物 | 谁产出 | 谁 review |
+|-------|------|------|-----------|
+| 立项 | `issue.md` | agent | 人 |
+| 设计 | `design.md` | agent(开发前) | 人 |
+| 实施 | code + PR | agent | — |
+| Review | `review.html` | `/review` skill(merge 前) | 人(以此决定是否 merge) |
+
+完整规则见 [`dev-log/README.md`](dev-log/README.md)。**新开 unit 之前必读。**
+
+跨 unit / 长期影响的 finding 从 `review.html` 提炼到 [`docs/architecture/design-log.md`](docs/architecture/design-log.md)。
+
 ## 参考文档
 
 需要了解项目细节时，按需读取：
@@ -45,3 +60,5 @@
 | 依赖规则详解 | [docs/architecture/dependency-rules.md](docs/architecture/dependency-rules.md) |
 | 添加扩展（Tool/Skill/Agent/LLM） | [docs/guides/adding-an-adapter.md](docs/guides/adding-an-adapter.md) |
 | 命名 / 代码规范 | [docs/guides/code-style.md](docs/guides/code-style.md) |
+| 开发日志体系 | [dev-log/README.md](dev-log/README.md) |
+| 当前 milestone 拆分 | [dev-log/v0.1/README.md](dev-log/v0.1/README.md) |
